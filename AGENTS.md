@@ -57,7 +57,8 @@ Additional run/build commands will be added once the repo layout is established.
   - A Go aggregation service that ingests control measurement events (holding intervals and
     transitions) and stores dense, bucketed aggregates in SQLite.
   - A Dagster analytics project that reads SQLite snapshot files and generates analytics
-    outputs and reports. The Dagster web UI is used to view runs and report artifacts.
+    outputs and reports. Outputs include KDE, CTMC, and stationary distribution estimates.
+    The Dagster web UI is used to view runs and report artifacts.
 - Out of scope:
   - custom user control UI/control panel
   - changing canonical clock set, bucket definitions, or blob layout
@@ -224,6 +225,36 @@ Numeric encoding decision:
 Dagster analytics must read from a SQLite snapshot file, not the live DB.
 
 A daily cadence (about once per day) is the default.
+
+Snapshot discovery convention:
+- Dagster reads from the newest `*.sqlite` file in the directory specified by
+  `HAA_SNAPSHOT_DIR` (latest by modification time).
+
+Snapshot export convention:
+- Aggregation snapshots are written under `/aggregation/snapshot`.
+- Snapshot filenames include a timestamp (date/time) to enable ordering.
+
+### Hypothesis (analytics intent)
+For a given control and time-of-week (per clock), multiple automation models may
+have been active historically. The hypothesis is:
+1) Holding time reflects what the automation model caused the system to do.
+2) User-initiated transitions reflect what the user prefers (corrections).
+3) If inference is correct, preference estimates should converge across models:
+   raw occupancy may differ, but inferred preference (via CTMC stationary
+   distribution) should align across models for the same control/time bucket.
+
+### KDE (smoothing)
+- KDE smooths sparse bucketed data across nearby time-of-week buckets (cyclic).
+- KDE produces smoothed sufficient statistics:
+  - smoothed holding times per state
+  - smoothed user-transition counts between states
+- KDE is applied before CTMC estimation.
+
+### CTMC (preference estimation)
+- Build a CTMC per control and per query time (clock, time-of-week).
+- Rates for i != j are proportional to user transitions i->j divided by holding
+  time in state i.
+- The stationary distribution of the CTMC is treated as the preference estimate.
 
 ---
 

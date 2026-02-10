@@ -1,0 +1,14 @@
+[project]
+name = "home-automation-analytics"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+  "dagster>=1.7.0",
+  "dagster-webserver>=1.7.0",
+]
+
+[project.optional-dependencies]
+# Placeholder for future analytics deps (e.g., numpy, scipy).
+
+[tool.dagster]
+module_name = "analytics"

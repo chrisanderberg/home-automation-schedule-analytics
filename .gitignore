@@ -1,0 +1,50 @@
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Go build cache
+/go.work
+/go.work.sum
+
+# Go coverage
+cover.out
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+*.whl
+*.log
+
+# Python envs
+.venv/
+venv/
+.env/
+
+# Conda
+conda-meta/
+
+# uv
+uv.lock
+
+# Dagster
+.dagster/
+
+# Snapshots
+aggregation/snapshot/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
