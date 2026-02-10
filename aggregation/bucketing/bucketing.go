@@ -9,9 +9,7 @@ type BucketSpan struct {
 
 func BucketAtUTC(timestampMs int64) (int, error) {
 	t := time.UnixMilli(timestampMs).UTC()
-	dayIndex := (int(t.Weekday()) + 6) % 7
-	bucketWithinDay := t.Hour()*12 + (t.Minute() / 5)
-	return dayIndex*288 + bucketWithinDay, nil
+	return bucketFromTime(t), nil
 }
 
 func BucketAtLocal(timestampMs int64, loc *time.Location) (int, error) {
@@ -19,9 +17,7 @@ func BucketAtLocal(timestampMs int64, loc *time.Location) (int, error) {
 		return 0, ErrInvalidTimestamp
 	}
 	t := time.UnixMilli(timestampMs).In(loc)
-	dayIndex := (int(t.Weekday()) + 6) % 7
-	bucketWithinDay := t.Hour()*12 + (t.Minute() / 5)
-	return dayIndex*288 + bucketWithinDay, nil
+	return bucketFromTime(t), nil
 }
 
 func SplitIntervalUTC(startMs, endMs int64) ([]BucketSpan, error) {
@@ -109,4 +105,10 @@ func nextBoundaryLocal(timestampMs int64, loc *time.Location) int64 {
 		return timestampMs + int64(5*60*1000)
 	}
 	return boundaryMs
+}
+
+func bucketFromTime(t time.Time) int {
+	dayIndex := (int(t.Weekday()) + 6) % 7
+	bucketWithinDay := t.Hour()*12 + (t.Minute() / 5)
+	return dayIndex*288 + bucketWithinDay
 }

@@ -88,6 +88,12 @@ The system uses exactly five clocks, always computed and stored in parallel:
 Clocks are treated as an experiment (schedule A/B test): analytics compares how
 preference estimates correlate under different time coordinate systems.
 
+Service-wide clock configuration:
+- The aggregation service uses a single global configuration for timezone and location.
+- Timezone is required for Local time bucketing (including DST handling).
+- Latitude/longitude are required for solar clocks (mean solar, apparent solar, unequal hours).
+- Configuration is provided by a config file and may be overridden by environment variables.
+
 ### Time-of-week bucketing
 - 5-minute buckets
 - 288 buckets/day (24 * 12)
