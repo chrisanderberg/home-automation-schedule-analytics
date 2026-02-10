@@ -1,0 +1,145 @@
+package storage
+
+import (
+	"context"
+	"database/sql"
+	"sync"
+	"testing"
+
+	"home-automation-analytics/aggregation/blob"
+)
+
+func openTestDB(t *testing.T) *sql.DB {
+	t.Helper()
+	// TODO: use sqlite in-memory db via Open
+	db, err := Open(":memory:")
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	if err := InitSchema(context.Background(), db); err != nil {
+		t.Fatalf("init schema: %v", err)
+	}
+	return db
+}
+
+func TestControlCRUD(t *testing.T) {
+	db := openTestDB(t)
+	defer db.Close()
+
+	control := Control{ControlID: "c1", ControlType: ControlTypeDiscrete, NumStates: 3}
+	if err := UpsertControl(context.Background(), db, control); err != nil {
+		t.Fatalf("upsert control: %v", err)
+	}
+
+	got, err := GetControl(context.Background(), db, "c1")
+	if err != nil {
+		t.Fatalf("get control: %v", err)
+	}
+	if got.ControlID != control.ControlID || got.ControlType != control.ControlType || got.NumStates != control.NumStates {
+		t.Fatalf("control mismatch: got %+v want %+v", got, control)
+	}
+}
+
+func TestAggregateCreateUpdate(t *testing.T) {
+	db := openTestDB(t)
+	defer db.Close()
+
+	key := AggregateKey{ControlID: "c1", ModelID: "m1", QuarterIndex: 1}
+	blobBytes, err := GetOrCreateAggregate(context.Background(), db, key, 2)
+	if err != nil {
+		t.Fatalf("get or create aggregate: %v", err)
+	}
+	if len(blobBytes) != 2*2*blob.GroupSize*8 {
+		t.Fatalf("blob size mismatch: %d", len(blobBytes))
+	}
+
+	if err := UpdateAggregate(context.Background(), db, key, 2, func(data []byte) error {
+		b, err := blob.NewBlob(2)
+		if err != nil {
+			return err
+		}
+		copy(b.Data(), data)
+		if err := b.SetU64(0, 7); err != nil {
+			return err
+		}
+		copy(data, b.Data())
+		return nil
+	}); err != nil {
+		t.Fatalf("update aggregate: %v", err)
+	}
+
+	updated, err := GetOrCreateAggregate(context.Background(), db, key, 2)
+	if err != nil {
+		t.Fatalf("get aggregate after update: %v", err)
+	}
+	b, err := blob.NewBlob(2)
+	if err != nil {
+		t.Fatalf("new blob: %v", err)
+	}
+	copy(b.Data(), updated)
+	v, err := b.GetU64(0)
+	if err != nil {
+		t.Fatalf("get value: %v", err)
+	}
+	if v != 7 {
+		t.Fatalf("updated value mismatch: got %d want %d", v, 7)
+	}
+}
+
+func TestAggregateConcurrentUpdates(t *testing.T) {
+	db := openTestDB(t)
+	defer db.Close()
+
+	key := AggregateKey{ControlID: "c1", ModelID: "m1", QuarterIndex: 1}
+	_, err := GetOrCreateAggregate(context.Background(), db, key, 2)
+	if err != nil {
+		t.Fatalf("get or create aggregate: %v", err)
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	updateFn := func(delta uint64) {
+		defer wg.Done()
+		err := UpdateAggregate(context.Background(), db, key, 2, func(data []byte) error {
+			b, err := blob.NewBlob(2)
+			if err != nil {
+				return err
+			}
+			copy(b.Data(), data)
+			v, err := b.GetU64(0)
+			if err != nil {
+				return err
+			}
+			if err := b.SetU64(0, v+delta); err != nil {
+				return err
+			}
+			copy(data, b.Data())
+			return nil
+		})
+		if err != nil {
+			t.Errorf("update aggregate: %v", err)
+		}
+	}
+
+	go updateFn(3)
+	go updateFn(4)
+	wg.Wait()
+
+	updated, err := GetOrCreateAggregate(context.Background(), db, key, 2)
+	if err != nil {
+		t.Fatalf("get aggregate after updates: %v", err)
+	}
+	b, err := blob.NewBlob(2)
+	if err != nil {
+		t.Fatalf("new blob: %v", err)
+	}
+	copy(b.Data(), updated)
+	v, err := b.GetU64(0)
+	if err != nil {
+		t.Fatalf("get value: %v", err)
+	}
+	if v != 7 {
+		t.Fatalf("concurrent update mismatch: got %d want %d", v, 7)
+	}
+}
