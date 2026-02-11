@@ -2,10 +2,10 @@
 
 ## Setup
 1. Create and activate a new conda env (any name).
-2. From this directory, install deps with uv:
+2. From this directory, install deps with uv (inside conda, use `--system`):
 
 ```bash
-uv pip install -e .
+uv pip install -e . --system
 ```
 
 ## Run

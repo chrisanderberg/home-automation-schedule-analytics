@@ -37,9 +37,12 @@ uv.lock
 
 # Dagster
 .dagster/
+analytics/.tmp_dagster_home_*/
+analytics/.tmp_dagster_home_*
 
 # Snapshots
 aggregation/snapshot/
+*.sqlite
 
 # OS
 .DS_Store

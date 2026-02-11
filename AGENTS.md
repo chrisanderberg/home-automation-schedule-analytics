@@ -272,6 +272,7 @@ Milestones are implemented using the two-step rule in Instructions.
 8. Milestone 7 — Solar clocks (mean solar, apparent solar, unequal hours)
 9. Milestone 8 — Snapshot export for Dagster (daily input artifact)
 10. Milestone 9 — Dagster project scaffold + daily run
+11. Milestone 10 — REST API scaffold + ingestion endpoints
 
 ---
 

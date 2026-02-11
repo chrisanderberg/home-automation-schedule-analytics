@@ -2,13 +2,20 @@ import os
 import sqlite3
 from pathlib import Path
 
-from dagster import AssetExecutionContext, MaterializeResult
+from dagster import (
+    AssetExecutionContext,
+    MaterializeResult,
+    RunRequest,
+    SkipReason,
+    asset,
+    sensor,
+)
 
 
 def _latest_snapshot_path() -> Path:
     snapshot_dir = os.environ.get("HAA_SNAPSHOT_DIR")
     if not snapshot_dir:
-        snapshot_dir = Path(__file__).resolve().parents[1] / "aggregation" / "snapshot"
+        snapshot_dir = Path(__file__).resolve().parents[2] / "aggregation" / "snapshot"
         snapshot_dir = str(snapshot_dir)
     if not snapshot_dir:
         raise RuntimeError("HAA_SNAPSHOT_DIR is not set")
@@ -24,8 +31,14 @@ def _latest_snapshot_path() -> Path:
     return max(candidates, key=lambda p: p.stat().st_mtime)
 
 
+@asset
 def snapshot_summary(context: AssetExecutionContext) -> MaterializeResult:
-    snapshot_path = _latest_snapshot_path()
+    try:
+        snapshot_path = _latest_snapshot_path()
+    except RuntimeError as exc:
+        context.log.warning(str(exc))
+        return MaterializeResult(metadata={"snapshot_missing": True})
+
     context.log.info("using snapshot %s", snapshot_path)
 
     conn = sqlite3.connect(snapshot_path)
@@ -45,3 +58,14 @@ def snapshot_summary(context: AssetExecutionContext) -> MaterializeResult:
             "aggregates_count": aggregates_count,
         }
     )
+
+
+@sensor(job_name="snapshot_job")
+def snapshot_sensor():
+    try:
+        snapshot_path = _latest_snapshot_path()
+    except RuntimeError as exc:
+        return SkipReason(str(exc))
+
+    run_key = str(snapshot_path)
+    return RunRequest(run_key=run_key, run_config={})
