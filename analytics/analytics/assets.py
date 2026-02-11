@@ -6,6 +6,7 @@ from dagster import (
     AssetExecutionContext,
     MaterializeResult,
     RunRequest,
+    SensorEvaluationContext,
     SkipReason,
     asset,
     sensor,
@@ -61,11 +62,28 @@ def snapshot_summary(context: AssetExecutionContext) -> MaterializeResult:
 
 
 @sensor(job_name="snapshot_job")
-def snapshot_sensor():
+def snapshot_sensor(context: SensorEvaluationContext):
     try:
         snapshot_path = _latest_snapshot_path()
     except RuntimeError as exc:
         return SkipReason(str(exc))
 
-    run_key = str(snapshot_path)
-    return RunRequest(run_key=run_key, run_config={})
+    mtime_ns = snapshot_path.stat().st_mtime_ns
+    cursor_raw = context.cursor or ""
+    last_seen_mtime = -1
+    if cursor_raw:
+        try:
+            last_seen_mtime = int(cursor_raw)
+        except ValueError:
+            last_seen_mtime = -1
+
+    if mtime_ns <= last_seen_mtime:
+        return SkipReason("no new snapshot detected")
+
+    context.update_cursor(str(mtime_ns))
+    run_key = f"{snapshot_path}:{mtime_ns}"
+    return RunRequest(
+        run_key=run_key,
+        run_config={},
+        tags={"snapshot_path": str(snapshot_path), "snapshot_mtime_ns": str(mtime_ns)},
+    )
