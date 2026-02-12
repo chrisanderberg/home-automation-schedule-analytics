@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -92,16 +93,16 @@ func run() error {
 	}
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	if err := shutdownServer(shutdownCtx, mainHTTP, "main"); err != nil {
 		log.Printf("main shutdown error: %v", err)
 	}
-	cancel()
 
 	testShutdownCtx, testCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer testCancel()
 	if err := shutdownServer(testShutdownCtx, testHTTP, "testing"); err != nil {
 		log.Printf("testing shutdown error: %v", err)
 	}
-	testCancel()
 
 	if runErr != nil {
 		return fmt.Errorf("listen: %w", runErr)
@@ -120,11 +121,11 @@ func getenvDefault(key, def string) string {
 // getenvFloatDefault parses a float env var and falls back on parse failure.
 func getenvFloatDefault(key string, def float64) float64 {
 	if val := os.Getenv(key); val != "" {
-		var parsed float64
-		_, err := fmt.Sscanf(val, "%f", &parsed)
+		parsed, err := strconv.ParseFloat(val, 64)
 		if err == nil {
 			return parsed
 		}
+		log.Printf("invalid float value for %s=%q, using default %v", key, val, def)
 	}
 	return def
 }
