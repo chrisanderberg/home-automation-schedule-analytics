@@ -1,3 +1,5 @@
+"""Dagster definitions wiring for analytics assets, jobs, schedules, and sensors."""
+
 from dagster import Definitions, ScheduleDefinition, define_asset_job
 
 from .assets import snapshot_sensor, snapshot_summary, testing_api_snapshot_validation, testing_snapshot_summary
@@ -15,5 +17,5 @@ definitions = Definitions(
 	assets=[snapshot_summary, testing_snapshot_summary, testing_api_snapshot_validation],
 	schedules=[snapshot_schedule],
 	sensors=[snapshot_sensor],
-	jobs=[testing_snapshot_job, testing_api_flow_job],
+	jobs=[snapshot_job, testing_snapshot_job, testing_api_flow_job],
 )

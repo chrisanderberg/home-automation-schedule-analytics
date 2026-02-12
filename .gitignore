@@ -42,7 +42,6 @@ analytics/.tmp_dagster_home_*/
 analytics/.tmp_dagster_home_*
 
 # SQLite artifacts
-aggregation/data/data.sqlite
 aggregation/data/snapshots/
 *.sqlite
 

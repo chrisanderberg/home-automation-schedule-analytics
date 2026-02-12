@@ -91,6 +91,14 @@ func run() error {
 		runErr = err
 		log.Printf("server error: %v", err)
 	}
+	select {
+	case err := <-errCh:
+		log.Printf("additional server error: %v", err)
+		if runErr == nil {
+			runErr = err
+		}
+	default:
+	}
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

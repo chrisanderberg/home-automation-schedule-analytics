@@ -125,7 +125,8 @@ func SplitIntervalUnequalHours(startMs, endMs int64, latitude, longitude float64
 }
 
 func unequalHoursBoundary(t time.Time, latitude, longitude float64) (time.Time, error) {
-	// Boundary based on next 5-minute bucket in unequal-hours clock.
+	// Boundary search advances in 1-minute steps; resulting transition time is
+	// therefore approximate within roughly one minute.
 	bucket, err := BucketAtUnequalHours(t.UnixMilli(), latitude, longitude)
 	if err != nil {
 		return time.Time{}, err

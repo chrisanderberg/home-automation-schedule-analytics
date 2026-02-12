@@ -64,7 +64,7 @@ func TestTransitionIngestSingleBucketUTC(t *testing.T) {
 	if err != nil {
 		t.Fatalf("bucketAtUTC: %v", err)
 	}
-	idxUTC, err := blob.TransIndex(0, 2, 0, bucketUTC, 3)
+	idxUTC, err := blob.TransIndex(0, 2, blob.ClockUTC, bucketUTC, 3)
 	if err != nil {
 		t.Fatalf("trans index utc: %v", err)
 	}
@@ -72,7 +72,7 @@ func TestTransitionIngestSingleBucketUTC(t *testing.T) {
 	if err != nil {
 		t.Fatalf("bucketAtLocal: %v", err)
 	}
-	idxLocal, err := blob.TransIndex(0, 2, 1, bucketLocal, 3)
+	idxLocal, err := blob.TransIndex(0, 2, blob.ClockLocal, bucketLocal, 3)
 	if err != nil {
 		t.Fatalf("trans index local: %v", err)
 	}

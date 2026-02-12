@@ -1,3 +1,5 @@
+"""Dagster assets and sensors for snapshot validation and reporting."""
+
 import sqlite3
 import json
 import os
@@ -17,22 +19,27 @@ from dagster import (
 
 
 def _latest_snapshot_path() -> Path:
+    """Return the newest production snapshot file path."""
     return _latest_snapshot_path_in_dir(_snapshot_root())
 
 
 def _latest_testing_snapshot_path() -> Path:
+    """Return the newest testing snapshot file path."""
     return _latest_snapshot_path_in_dir(_testing_snapshot_root())
 
 
 def _snapshot_root() -> Path:
+    """Return the production snapshot directory."""
     return _repository_root() / "data" / "snapshots"
 
 
 def _testing_snapshot_root() -> Path:
+    """Return the testing snapshot directory."""
     return _repository_root() / "test-data" / "snapshots"
 
 
 def _repository_root() -> Path:
+    """Resolve the monorepo root by searching parent directories."""
     start = Path(__file__).resolve()
     for parent in start.parents:
         if (parent / "aggregation").is_dir():
@@ -41,6 +48,7 @@ def _repository_root() -> Path:
 
 
 def _latest_snapshot_path_in_dir(root: Path) -> Path:
+    """Return the most recently modified snapshot in a directory."""
     if not root.exists() or not root.is_dir():
         raise RuntimeError(f"snapshot directory is not present: {root}")
 
@@ -52,18 +60,22 @@ def _latest_snapshot_path_in_dir(root: Path) -> Path:
 
 
 def _testing_api_base_url() -> str:
+    """Return the testing API base URL."""
     return os.getenv("HAA_TESTING_API_URL", "http://127.0.0.1:8081").rstrip("/")
 
 
 def _testing_flow_test_name() -> str:
+    """Return the testing dataset name used by the validation flow."""
     return os.getenv("HAA_DAGSTER_TEST_NAME", "dagster-asset-flow")
 
 
 def _testing_flow_snapshot_name() -> str:
+    """Return the testing snapshot slug used by the validation flow."""
     return os.getenv("HAA_DAGSTER_SNAPSHOT_NAME", "dagster-asset-flow")
 
 
 def _post_json(url: str, payload: dict) -> tuple[int, dict]:
+    """POST JSON and return HTTP status with decoded JSON payload."""
     req = urllib.request.Request(
         url=url,
         data=json.dumps(payload).encode("utf-8"),
@@ -85,6 +97,7 @@ def _post_json(url: str, payload: dict) -> tuple[int, dict]:
 
 
 def _require_status(status: int, expected: int, step: str, payload: dict) -> None:
+    """Raise a runtime error when an API call returns an unexpected status."""
     if status != expected:
         raise RuntimeError(f"{step} failed: expected {expected}, got {status}, payload={payload}")
 
@@ -92,6 +105,7 @@ def _require_status(status: int, expected: int, step: str, payload: dict) -> Non
 def _summarize_snapshot(
     context: AssetExecutionContext, snapshot_path_fn, label: str
 ) -> MaterializeResult:
+    """Read a snapshot DB and publish row-count metadata."""
     try:
         snapshot_path = snapshot_path_fn()
     except RuntimeError as exc:
@@ -113,7 +127,7 @@ def _summarize_snapshot(
             aggregates_count = cur.fetchone()[0]
         except (sqlite3.OperationalError, sqlite3.DatabaseError) as exc:
             message = f"failed snapshot query for {snapshot_path}: {exc}"
-            context.log.error(message)
+            context.log.exception(message)
             raise RuntimeError(message) from exc
     finally:
         conn.close()
@@ -129,16 +143,19 @@ def _summarize_snapshot(
 
 @asset
 def snapshot_summary(context: AssetExecutionContext) -> MaterializeResult:
+    """Materialize summary metadata for the latest production snapshot."""
     return _summarize_snapshot(context, _latest_snapshot_path, "main")
 
 
 @asset
 def testing_snapshot_summary(context: AssetExecutionContext) -> MaterializeResult:
+    """Materialize summary metadata for the latest testing snapshot."""
     return _summarize_snapshot(context, _latest_testing_snapshot_path, "testing")
 
 
 @asset
 def testing_api_snapshot_validation(context: AssetExecutionContext) -> MaterializeResult:
+    """Exercise testing API flow and validate the exported snapshot contents."""
     base_url = _testing_api_base_url()
     test_name = _testing_flow_test_name()
     snapshot_name = _testing_flow_snapshot_name()
@@ -204,7 +221,9 @@ def testing_api_snapshot_validation(context: AssetExecutionContext) -> Materiali
             aggregates_count = conn.execute("SELECT COUNT(*) FROM aggregates").fetchone()[0]
         except (sqlite3.OperationalError, sqlite3.DatabaseError) as exc:
             message = f"failed snapshot query for {snapshot_path}: {exc}"
-            context.log.error(message)
+            # Testing-validation assets surface DB failures as metadata so CI can
+            # report a structured failure reason without a hard Dagster crash.
+            context.log.exception(message)
             return MaterializeResult(metadata={"snapshot_missing": True, "error": message})
     finally:
         conn.close()
@@ -228,6 +247,7 @@ def testing_api_snapshot_validation(context: AssetExecutionContext) -> Materiali
 
 @sensor(job_name="snapshot_job")
 def snapshot_sensor(context: SensorEvaluationContext):
+    """Trigger snapshot processing when a newer snapshot file appears."""
     try:
         snapshot_path = _latest_snapshot_path()
     except RuntimeError as exc:

@@ -13,6 +13,7 @@ import (
 	"runtime"
 
 	"home-automation-analytics/aggregation/ingest"
+	"home-automation-analytics/aggregation/internal/reporoot"
 	"home-automation-analytics/aggregation/snapshot"
 	"home-automation-analytics/aggregation/storage"
 )
@@ -281,7 +282,13 @@ func (s *TestingServer) handleReset(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Reset removes only files for the requested test dataset.
-	dbPath := testingDBPath(req.TestName)
+	root, err := testDataRootDir()
+	if err != nil {
+		log.Printf("testing reset path resolution failed for %q: %v", req.TestName, err)
+		writeError(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	dbPath := filepath.Join(root, req.TestName+"-test-data.sqlite")
 	paths := []string{dbPath, dbPath + "-wal", dbPath + "-shm"}
 	removalFailed := false
 	for _, path := range paths {
@@ -341,12 +348,12 @@ func testDataRootDir() (string, error) {
 
 	execPath, err := os.Executable()
 	if err == nil {
-		if root, ok := findRepositoryRoot(filepath.Dir(execPath)); ok {
+		if root, ok := reporoot.Find(filepath.Dir(execPath)); ok {
 			return filepath.Join(root, "test-data"), nil
 		}
 	}
 	if _, file, _, ok := runtime.Caller(0); ok {
-		if root, ok := findRepositoryRoot(filepath.Dir(file)); ok {
+		if root, ok := reporoot.Find(filepath.Dir(file)); ok {
 			return filepath.Join(root, "test-data"), nil
 		}
 	}
@@ -354,33 +361,10 @@ func testDataRootDir() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("determine working directory for test data path: %w", err)
 	}
-	if root, ok := findRepositoryRoot(wd); ok {
+	if root, ok := reporoot.Find(wd); ok {
 		return filepath.Join(root, "test-data"), nil
 	}
 	return "", fmt.Errorf("could not resolve test-data root")
-}
-
-func findRepositoryRoot(start string) (string, bool) {
-	cur := filepath.Clean(start)
-	for {
-		if isRepositoryRoot(cur) {
-			return cur, true
-		}
-		parent := filepath.Dir(cur)
-		if parent == cur {
-			return "", false
-		}
-		cur = parent
-	}
-}
-
-func isRepositoryRoot(path string) bool {
-	info, err := os.Stat(filepath.Join(path, "aggregation"))
-	if err != nil || !info.IsDir() {
-		return false
-	}
-	info, err = os.Stat(filepath.Join(path, "analytics"))
-	return err == nil && info.IsDir()
 }
 
 // isValidSlug enforces the lowercase-hyphen slug format used in test paths.

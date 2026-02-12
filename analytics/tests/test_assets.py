@@ -6,6 +6,7 @@ import types
 import unittest
 from pathlib import Path
 
+# Stub dagster to avoid importing the runtime stack in utility-focused tests.
 dagster_stub = types.ModuleType("dagster")
 dagster_stub.AssetExecutionContext = object
 dagster_stub.MaterializeResult = object
@@ -43,10 +44,12 @@ class LatestSnapshotPathTests(unittest.TestCase):
 
 
 def _snapshot_path_root_for_test() -> Path:
+    """Return the expected production snapshot root for tests."""
     return _repository_root_for_test() / "data" / "snapshots"
 
 
 def _repository_root_for_test() -> Path:
+    """Resolve the repository root from the test file location."""
     start = Path(__file__).resolve()
     for parent in start.parents:
         if (parent / "aggregation").is_dir():

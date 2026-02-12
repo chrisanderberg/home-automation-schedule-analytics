@@ -11,12 +11,16 @@ const (
 	ClockApparentSolar
 	// ClockUnequalHours maps day/night into unequal-hour bucket space.
 	ClockUnequalHours
+	clockCount
+)
+
+const (
 	// BucketsPerDay is fixed at 5-minute resolution.
 	BucketsPerDay = 288
 	// BucketsPerWeek follows Monday..Sunday indexing across all days.
 	BucketsPerWeek = 7 * BucketsPerDay
 	// Clocks is the fixed number of parallel time coordinate systems.
-	Clocks = ClockUnequalHours + 1
+	Clocks = clockCount
 	// GroupSize is one full week of buckets across all clocks.
 	GroupSize = BucketsPerWeek * Clocks
 )

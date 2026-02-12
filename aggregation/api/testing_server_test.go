@@ -46,16 +46,7 @@ func TestTestingControlsUpsertWritesControl(t *testing.T) {
 	srv := NewTestingServer(ingest.Config{TimeZone: "UTC"})
 
 	outputDir := t.TempDir()
-	prevWD, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("getwd: %v", err)
-	}
-	if err := os.Chdir(outputDir); err != nil {
-		t.Fatalf("chdir: %v", err)
-	}
-	t.Cleanup(func() {
-		_ = os.Chdir(prevWD)
-	})
+	chdirForTest(t, outputDir)
 	setTestDataDirForTest(t, outputDir)
 
 	payload := map[string]any{
@@ -97,16 +88,7 @@ func TestTestingHoldingWritesToTestSpecificDB(t *testing.T) {
 	srv := NewTestingServer(ingest.Config{TimeZone: "UTC"})
 
 	outputDir := t.TempDir()
-	prevWD, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("getwd: %v", err)
-	}
-	if err := os.Chdir(outputDir); err != nil {
-		t.Fatalf("chdir: %v", err)
-	}
-	t.Cleanup(func() {
-		_ = os.Chdir(prevWD)
-	})
+	chdirForTest(t, outputDir)
 	setTestDataDirForTest(t, outputDir)
 
 	seedTestControl(t, "case-one", storage.Control{ControlID: "c1", ControlType: storage.ControlTypeDiscrete, NumStates: 2})
@@ -154,16 +136,7 @@ func TestTestingSnapshotUsesRequestedNames(t *testing.T) {
 	srv := NewTestingServer(ingest.Config{TimeZone: "UTC"})
 
 	outputDir := t.TempDir()
-	prevWD, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("getwd: %v", err)
-	}
-	if err := os.Chdir(outputDir); err != nil {
-		t.Fatalf("chdir: %v", err)
-	}
-	t.Cleanup(func() {
-		_ = os.Chdir(prevWD)
-	})
+	chdirForTest(t, outputDir)
 	setTestDataDirForTest(t, outputDir)
 
 	seedTestControl(t, "case-one", storage.Control{ControlID: "c1", ControlType: storage.ControlTypeDiscrete, NumStates: 2})
@@ -185,7 +158,10 @@ func TestTestingSnapshotUsesRequestedNames(t *testing.T) {
 		t.Fatalf("snapshot name mismatch: got %q want %q", resp["snapshotName"], "sanity-check")
 	}
 	wantSuffix := filepath.Join("test-data", "snapshots", "case-one-sanity-check-snapshot.sqlite")
-	snapshotPath := resp["snapshotPath"]
+	snapshotPath, ok := resp["snapshotPath"]
+	if !ok || snapshotPath == "" {
+		t.Fatalf("response missing snapshotPath: %+v", resp)
+	}
 	if !strings.HasSuffix(snapshotPath, wantSuffix) {
 		t.Fatalf("snapshot path mismatch: got %s want suffix %s (outputDir=%s)", snapshotPath, wantSuffix, outputDir)
 	}
@@ -203,16 +179,7 @@ func TestTestingSnapshotContainsSeededControl(t *testing.T) {
 	snapshotName := "contains-control"
 
 	outputDir := t.TempDir()
-	prevWD, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("getwd: %v", err)
-	}
-	if err := os.Chdir(outputDir); err != nil {
-		t.Fatalf("chdir: %v", err)
-	}
-	t.Cleanup(func() {
-		_ = os.Chdir(prevWD)
-	})
+	chdirForTest(t, outputDir)
 	setTestDataDirForTest(t, outputDir)
 
 	seedTestControl(t, testName, storage.Control{ControlID: "c1", ControlType: storage.ControlTypeDiscrete, NumStates: 2})
@@ -272,16 +239,7 @@ func TestTestingResetRemovesOnlyRequestedTestDB(t *testing.T) {
 	srv := NewTestingServer(ingest.Config{TimeZone: "UTC"})
 
 	outputDir := t.TempDir()
-	prevWD, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("getwd: %v", err)
-	}
-	if err := os.Chdir(outputDir); err != nil {
-		t.Fatalf("chdir: %v", err)
-	}
-	t.Cleanup(func() {
-		_ = os.Chdir(prevWD)
-	})
+	chdirForTest(t, outputDir)
 	setTestDataDirForTest(t, outputDir)
 
 	seedTestControl(t, "case-one", storage.Control{ControlID: "c1", ControlType: storage.ControlTypeDiscrete, NumStates: 2})
@@ -319,4 +277,18 @@ func seedTestControl(t *testing.T, testName string, control storage.Control) {
 func setTestDataDirForTest(t *testing.T, outputDir string) {
 	t.Helper()
 	t.Setenv("TEST_DATA_DIR", filepath.Join(outputDir, "test-data"))
+}
+
+func chdirForTest(t *testing.T, dir string) {
+	t.Helper()
+	prevWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chdir(prevWD)
+	})
 }

@@ -11,7 +11,6 @@ import (
 
 func openTestDB(t *testing.T) *sql.DB {
 	t.Helper()
-	// TODO: use sqlite in-memory db via Open
 	db, err := Open(":memory:")
 	if err != nil {
 		t.Fatalf("open db: %v", err)

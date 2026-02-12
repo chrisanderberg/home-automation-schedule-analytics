@@ -1,6 +1,7 @@
 package bucketing
 
 import (
+	"errors"
 	"testing"
 	"time"
 )
@@ -40,7 +41,7 @@ func TestSolarBucketsDefined(t *testing.T) {
 // clocks remain computable for the same timestamp and location.
 func TestUnequalHoursUndefinedOnly(t *testing.T) {
 	// High latitude in winter to trigger no sunrise/sunset for unequal hours.
-	lat := 78.2232  // Longyearbyen
+	lat := 78.2232 // Longyearbyen
 	lon := 15.6469
 	timestamp := time.Date(2020, 12, 21, 12, 0, 0, 0, time.UTC).UnixMilli()
 
@@ -64,7 +65,7 @@ func TestUnequalHoursUndefinedOnly(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected unequal hours to be undefined")
 	}
-	if err != ErrUndefinedClock {
+	if !errors.Is(err, ErrUndefinedClock) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

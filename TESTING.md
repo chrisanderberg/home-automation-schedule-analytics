@@ -24,7 +24,7 @@ dagster dev
 Expected result:
 - Dagster UI starts and project definitions load.
 
-If `dagster dev` fails with missing executable/module errors:
+If any analytics Python command fails with missing executable/module errors (for example `dagster`, `ruff`, `pytest`, or import failures):
 - Ask for project-specific environment activation steps first (e.g., conda, venv, or other local workflow).
 - Avoid committing machine-specific environment details (such as personal conda paths) to tracked repo docs.
 - Keep local environment specifics in local-only setup files or personal shell config.
@@ -38,6 +38,28 @@ PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py'
 
 Expected result:
 - All analytics unit tests pass.
+
+## Analytics docstring lint
+Run from repository root:
+
+```bash
+ruff check --config analytics/pyproject.toml --select D analytics/src
+```
+
+Expected result:
+- No docstring violations in production analytics Python modules.
+
+## Optional local pre-commit setup
+Run from repository root:
+
+```bash
+python3 -m pip install pre-commit
+pre-commit install
+pre-commit run --all-files
+```
+
+Expected result:
+- Pre-commit enforces analytics docstring lint before commit.
 
 ## Test-data naming conventions
 All paths below are relative to the repository root.

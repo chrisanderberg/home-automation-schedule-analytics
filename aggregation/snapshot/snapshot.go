@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"home-automation-analytics/aggregation/internal/reporoot"
 	_ "modernc.org/sqlite"
 )
 
@@ -127,7 +128,7 @@ func snapshotRootDir() (string, error) {
 
 	execPath, err := os.Executable()
 	if err == nil {
-		if root, ok := findRepositoryRoot(filepath.Dir(execPath)); ok {
+		if root, ok := reporoot.Find(filepath.Dir(execPath)); ok {
 			return filepath.Join(root, "data", "snapshots"), nil
 		}
 	}
@@ -135,7 +136,7 @@ func snapshotRootDir() (string, error) {
 	// Source-relative fallback keeps tests stable when cwd/executable point at
 	// temporary directories.
 	if _, file, _, ok := runtime.Caller(0); ok {
-		if root, ok := findRepositoryRoot(filepath.Dir(file)); ok {
+		if root, ok := reporoot.Find(filepath.Dir(file)); ok {
 			return filepath.Join(root, "data", "snapshots"), nil
 		}
 	}
@@ -144,34 +145,10 @@ func snapshotRootDir() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("determine working directory for snapshot path: %w", err)
 	}
-	if root, ok := findRepositoryRoot(wd); ok {
+	if root, ok := reporoot.Find(wd); ok {
 		return filepath.Join(root, "data", "snapshots"), nil
 	}
 	return "", fmt.Errorf("could not resolve snapshot root: set SNAPSHOT_DIR")
-}
-
-// findRepositoryRoot searches upward for the monorepo root marker.
-func findRepositoryRoot(start string) (string, bool) {
-	cur := filepath.Clean(start)
-	for {
-		if isRepositoryRoot(cur) {
-			return cur, true
-		}
-		parent := filepath.Dir(cur)
-		if parent == cur {
-			return "", false
-		}
-		cur = parent
-	}
-}
-
-func isRepositoryRoot(path string) bool {
-	info, err := os.Stat(filepath.Join(path, "aggregation"))
-	if err != nil || !info.IsDir() {
-		return false
-	}
-	info, err = os.Stat(filepath.Join(path, "analytics"))
-	return err == nil && info.IsDir()
 }
 
 // copySQLiteDB copies user tables and their rows (excluding sqlite internal tables).
@@ -229,18 +206,21 @@ func copyTable(ctx context.Context, source *sql.DB, dest execContexter, table st
 		placeholders += ",?"
 	}
 	insertSQL := "INSERT INTO " + quotedTable + " (" + joinColumns(cols) + ") VALUES (" + placeholders + ")"
+	values := make([]any, len(cols))
+	ptrs := make([]any, len(cols))
+	for i := range values {
+		ptrs[i] = &values[i]
+	}
 
 	for rows.Next() {
-		values := make([]any, len(cols))
-		ptrs := make([]any, len(cols))
-		for i := range values {
-			ptrs[i] = &values[i]
-		}
 		if err := rows.Scan(ptrs...); err != nil {
 			return err
 		}
 		if _, err := dest.ExecContext(ctx, insertSQL, values...); err != nil {
 			return err
+		}
+		for i := range values {
+			values[i] = nil
 		}
 	}
 	return rows.Err()

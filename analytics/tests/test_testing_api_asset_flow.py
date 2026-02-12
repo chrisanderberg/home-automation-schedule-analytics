@@ -17,6 +17,7 @@ except Exception:  # pragma: no cover - environment-dependent import
 
 
 def _repository_root_for_test() -> Path:
+    """Resolve the monorepo root by walking parent directories."""
     start = Path(__file__).resolve()
     for parent in start.parents:
         if (parent / "aggregation").is_dir():
@@ -25,12 +26,16 @@ def _repository_root_for_test() -> Path:
 
 
 def _pick_free_port() -> int:
+    """Pick an ephemeral localhost TCP port for test server startup."""
+    # Known TOCTOU tradeoff: port is released after bind() and may be claimed
+    # before aggregationd starts. Acceptable for this integration test.
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.bind(("127.0.0.1", 0))
         return int(sock.getsockname()[1])
 
 
 def _post_json(url: str, payload: dict) -> tuple[int, dict]:
+    """POST JSON and return status code plus decoded JSON response."""
     req = urllib.request.Request(
         url=url,
         data=json.dumps(payload).encode("utf-8"),
@@ -52,6 +57,7 @@ def _post_json(url: str, payload: dict) -> tuple[int, dict]:
 
 
 def _wait_for_health(base_url: str, timeout_seconds: float = 10.0) -> None:
+    """Wait until the service health endpoint responds with HTTP 200."""
     deadline = time.time() + timeout_seconds
     last_error = None
     while time.time() < deadline:
@@ -66,6 +72,7 @@ def _wait_for_health(base_url: str, timeout_seconds: float = 10.0) -> None:
 
 
 def _seed_test_control(db_path: Path) -> None:
+    """Create minimal schema and seed one control row for test setup."""
     db_path.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(db_path) as conn:
         conn.execute(
@@ -123,8 +130,8 @@ class TestingAPIAssetFlowTests(unittest.TestCase):
                 "UTC",
             ],
             cwd=aggregation_dir,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
         )
         try:
@@ -197,6 +204,13 @@ class TestingAPIAssetFlowTests(unittest.TestCase):
             except subprocess.TimeoutExpired:
                 proc.kill()
                 proc.wait(timeout=5)
+            if proc.returncode not in (0, -15):
+                stdout_data = proc.stdout.read() if proc.stdout is not None else ""
+                stderr_data = proc.stderr.read() if proc.stderr is not None else ""
+                self.fail(
+                    "aggregationd exited unexpectedly with "
+                    f"code {proc.returncode}\nstdout:\n{stdout_data}\nstderr:\n{stderr_data}"
+                )
 
 
 if __name__ == "__main__":
