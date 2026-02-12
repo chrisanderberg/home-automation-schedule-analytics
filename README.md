@@ -12,14 +12,12 @@ Run tests from `/aggregation`:
 go test ./...
 ```
 
-Snapshots are exported under `/aggregation/snapshot` with timestamped filenames.
+The live aggregation DB defaults to `/aggregation/data/data.sqlite`.
+Snapshots are exported under `/aggregation/data/snapshots` with timestamped filenames.
 
 ## Analytics
 From `/analytics`:
 ```bash
 uv pip install -e .
-export HAA_SNAPSHOT_DIR=/path/to/snapshots
-# or omit HAA_SNAPSHOT_DIR to default to /aggregation/snapshot
-
 dagster dev
 ```

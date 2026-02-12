@@ -1,4 +1,3 @@
-import os
 import sqlite3
 from pathlib import Path
 
@@ -14,20 +13,17 @@ from dagster import (
 
 
 def _latest_snapshot_path() -> Path:
-    snapshot_dir = os.environ.get("HAA_SNAPSHOT_DIR")
-    if not snapshot_dir:
-        snapshot_dir = Path(__file__).resolve().parents[2] / "aggregation" / "snapshot"
-        snapshot_dir = str(snapshot_dir)
-    if not snapshot_dir:
-        raise RuntimeError("HAA_SNAPSHOT_DIR is not set")
+    root = Path(__file__).resolve().parents[2] / "aggregation" / "data" / "snapshots"
+    return _latest_snapshot_path_in_dir(root)
 
-    root = Path(snapshot_dir)
+
+def _latest_snapshot_path_in_dir(root: Path) -> Path:
     if not root.exists() or not root.is_dir():
-        raise RuntimeError(f"HAA_SNAPSHOT_DIR is not a directory: {snapshot_dir}")
+        raise RuntimeError(f"snapshot directory is not present: {root}")
 
     candidates = list(root.glob("*.sqlite"))
     if not candidates:
-        raise RuntimeError(f"no snapshot files found in {snapshot_dir}")
+        raise RuntimeError(f"no snapshot files found in {root}")
 
     return max(candidates, key=lambda p: p.stat().st_mtime)
 

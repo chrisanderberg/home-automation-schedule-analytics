@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"io"
 	"net/http"
 
 	"home-automation-analytics/aggregation/ingest"
@@ -77,20 +78,21 @@ func (s *Server) handleTransitions(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusAccepted, map[string]string{"status": "accepted"})
 }
 
-type snapshotRequest struct {
-	OutputPath string `json:"outputPath"`
-}
-
 func (s *Server) handleSnapshots(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	var req snapshotRequest
 	if r.Body != nil {
-		_ = json.NewDecoder(r.Body).Decode(&req)
+		var req struct{}
+		decoder := json.NewDecoder(r.Body)
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&req); err != nil && err != io.EOF {
+			writeError(w, http.StatusBadRequest, "invalid json")
+			return
+		}
 	}
-	path, err := snapshot.Export(r.Context(), s.db, snapshot.ExportOptions{OutputPath: req.OutputPath})
+	path, err := snapshot.Export(r.Context(), s.db)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return

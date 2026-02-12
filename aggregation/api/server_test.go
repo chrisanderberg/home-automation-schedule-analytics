@@ -3,10 +3,13 @@ package api
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"database/sql"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -93,15 +96,55 @@ func TestSnapshotEndpoint(t *testing.T) {
 	srv := NewServer(db, ingest.Config{TimeZone: "UTC"})
 
 	outputDir := t.TempDir()
-	payload := map[string]string{"outputPath": outputDir + "/snapshot.sqlite"}
-	body, _ := json.Marshal(payload)
+	prevWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	if err := os.Chdir(outputDir); err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chdir(prevWD)
+	})
 
-	req := httptest.NewRequest(http.MethodPost, "/v1/snapshots", bytes.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/v1/snapshots", nil)
 	w := httptest.NewRecorder()
 	srv.ServeHTTP(w, req)
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	var payload map[string]string
+	if err := json.Unmarshal(w.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	snapshotPath := payload["snapshotPath"]
+	if snapshotPath == "" {
+		t.Fatalf("missing snapshotPath in response: %s", w.Body.String())
+	}
+	wantDir := filepath.Join(outputDir, "data", "snapshots")
+	if !strings.HasSuffix(filepath.Dir(snapshotPath), filepath.Join("data", "snapshots")) {
+		t.Fatalf("snapshot dir mismatch: got %s want suffix %s", filepath.Dir(snapshotPath), wantDir)
+	}
+	if _, err := os.Stat(snapshotPath); err != nil {
+		t.Fatalf("snapshot file missing: %v", err)
+	}
+}
+
+func TestSnapshotEndpointRejectsOutputPathOverride(t *testing.T) {
+	db := openTestDB(t)
+	defer db.Close()
+
+	srv := NewServer(db, ingest.Config{TimeZone: "UTC"})
+	body := bytes.NewReader([]byte(`{"outputPath":"somewhere.sqlite"}`))
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/snapshots", body)
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", w.Code)
 	}
 }
 

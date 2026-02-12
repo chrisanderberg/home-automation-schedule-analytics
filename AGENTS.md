@@ -175,6 +175,13 @@ The aggregation service stores:
 
 SQLite is the canonical storage format for aggregates.
 
+Runtime file locations:
+- The live aggregation SQLite database path is fixed at `/aggregation/data/data.sqlite`.
+- Snapshot files are runtime artifacts and must be written under `/aggregation/data/snapshots`.
+- The `/aggregation/snapshot` folder is code-only (snapshot creation/management logic), not a
+  destination for generated snapshot files.
+- Runtime file locations are fixed and not user-configurable via API request payloads, flags, or env vars.
+
 ### Dense blob layout (canonical)
 Constants:
 - B = 2016 buckets/week
@@ -227,12 +234,13 @@ Dagster analytics must read from a SQLite snapshot file, not the live DB.
 A daily cadence (about once per day) is the default.
 
 Snapshot discovery convention:
-- Dagster reads from the newest `*.sqlite` file in the directory specified by
-  `HAA_SNAPSHOT_DIR` (latest by modification time).
+- Dagster reads from the newest `*.sqlite` file in `/aggregation/data/snapshots`
+  (latest by modification time).
 
 Snapshot export convention:
-- Aggregation snapshots are written under `/aggregation/snapshot`.
+- Aggregation snapshots are written under `/aggregation/data/snapshots`.
 - Snapshot filenames include a timestamp (date/time) to enable ordering.
+- Snapshot filenames keep the existing `snapshot` prefix followed by a timestamp.
 
 ### Hypothesis (analytics intent)
 For a given control and time-of-week (per clock), multiple automation models may
@@ -273,6 +281,7 @@ Milestones are implemented using the two-step rule in Instructions.
 9. Milestone 8 — Snapshot export for Dagster (daily input artifact)
 10. Milestone 9 — Dagster project scaffold + daily run
 11. Milestone 10 — REST API scaffold + ingestion endpoints
+12. Milestone 11 — Storage path migration + Dagster path alignment (`data/data.sqlite` and `data/snapshots`)
 
 ---
 

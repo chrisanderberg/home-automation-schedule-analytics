@@ -16,7 +16,6 @@ import (
 func main() {
 	var (
 		addr     = flag.String("addr", ":8080", "HTTP listen address")
-		dbPath   = flag.String("db", "aggregation.sqlite", "SQLite DB path")
 		timeZone = flag.String("tz", getenvDefault("HAA_TIMEZONE", "UTC"), "IANA timezone")
 		lat      = flag.Float64("lat", getenvFloatDefault("HAA_LATITUDE", 0), "Latitude")
 		lon      = flag.Float64("lon", getenvFloatDefault("HAA_LONGITUDE", 0), "Longitude")
@@ -25,7 +24,7 @@ func main() {
 
 	cfg := ingest.Config{TimeZone: *timeZone, Latitude: *lat, Longitude: *lon}
 
-	db, err := storage.Open(*dbPath)
+	db, err := storage.Open("data/data.sqlite")
 	if err != nil {
 		log.Fatalf("open db: %v", err)
 	}
