@@ -1,0 +1,257 @@
+# REQUIREMENTS.md
+
+## Requirements (single source of truth)
+
+### Change control
+- Requirements in this file may be changed only with explicit user approval.
+- It is okay to ask for requirement changes, but do not change requirements without asking first.
+
+### Repo purpose and scope
+- This repository is a monorepo with two components:
+  - A Go aggregation service that ingests control measurement events (holding intervals and
+    transitions) and stores dense, bucketed aggregates in SQLite.
+  - A Dagster analytics project that reads SQLite snapshot files and generates analytics
+    outputs and reports. Outputs include KDE, CTMC, and stationary distribution estimates.
+    The Dagster web UI is used to view runs and report artifacts.
+- Out of scope:
+  - custom user control UI/control panel
+  - changing canonical clock set, bucket definitions, or blob layout
+  - production auth/security/scaling
+
+### High-level model
+Controls are discrete state variables.
+
+- Discrete/radio controls: N states, where 2 <= N <= 10
+- Slider controls: N = 6 (discretized slider states)
+
+Controls are associated with automation models. Both automation and humans can
+change control state. Only human-initiated transitions are counted as transitions
+for analytics.
+
+This repo’s aggregation service assumes upstream only sends countable (human)
+transitions to the transition ingestion endpoint.
+
+### Five clocks (always computed in parallel)
+The system uses exactly five clocks, always computed and stored in parallel:
+
+0) UTC
+1) Local time
+2) Mean solar time
+3) Apparent solar time
+4) Unequal hours
+
+Clocks are treated as an experiment (schedule A/B test): analytics compares how
+preference estimates correlate under different time coordinate systems.
+
+Service-wide clock configuration:
+- The aggregation service uses a single global configuration for timezone and location.
+- Timezone is required for Local time bucketing (including DST handling).
+- Latitude/longitude are required for solar clocks (mean solar, apparent solar, unequal hours).
+- Configuration is provided by a config file and may be overridden by environment variables.
+
+### Time-of-week bucketing
+- 5-minute buckets
+- 288 buckets/day (24 * 12)
+- 2016 buckets/week (7 * 288)
+- Buckets are indexed per clock.
+
+Day-of-week indexing convention:
+- Monday = 0
+- Tuesday = 1
+- Wednesday = 2
+- Thursday = 3
+- Friday = 4
+- Saturday = 5
+- Sunday = 6
+
+Bucket index `b` in 0..2015:
+
+- `bucketWithinDay = hour * 12 + floor(minute / 5)` (0..287)
+- `b = dayIndex * 288 + bucketWithinDay` (0..2015)
+
+### Measurement semantics (aggregation inputs)
+Two fundamental operations are ingested:
+
+1) Holding interval (time in state)
+- Input: controlId, modelId, state, startTimeMs, endTimeMs
+- Time representation: UTC epoch milliseconds (integers)
+- Interval semantics: half-open [startTimeMs, endTimeMs)
+- Holding time is measured in real elapsed milliseconds.
+- The holding interval is split across all overlapped time-of-week buckets, per
+  clock, and accumulated.
+
+2) Transition event (user correction)
+- Input: controlId, modelId, fromState, toState, timestampMs
+- Counted in the time-of-week bucket containing timestampMs, per clock.
+- Self-transitions (fromState == toState) are rejected/not stored.
+
+Data integrity posture:
+- If integrity fails (invalid timestamps, invalid states, missing control
+  metadata, etc.), discard the input and log a clear reason.
+
+Undefined time-of-day cases:
+- If a clock mapping is undefined (e.g., unequal hours when no sunrise/sunset),
+  do not count data for that clock only; still count other clocks when defined.
+
+### Quarter windows (UTC calendar quarters)
+Quarter windows are UTC calendar quarters:
+
+- Q1: January–March
+- Q2: April–June
+- Q3: July–September
+- Q4: October–December
+
+Quarters are variable-length and may include leap days.
+
+Quarter windows are independent of the five clocks.
+
+A suggested integer representation:
+
+- `quarterIndex = (utcYear - 1970) * 4 + (quarterNumber - 1)`
+
+If an ingested holding interval crosses a quarter boundary, it must be split and
+applied to multiple quarter windows.
+
+### Storage model (SQLite) — conceptual
+The aggregation service stores:
+
+1) Control metadata:
+- controlId
+- control type (discrete vs slider)
+- numStates (2..10; slider typically 6)
+- optional state labels
+
+2) Aggregated sufficient statistics keyed by:
+- controlId
+- modelId
+- quarterIndex (UTC calendar quarter)
+- payload: dense numeric blob described below
+
+SQLite is the canonical storage format for aggregates.
+
+Runtime file locations:
+- The live aggregation SQLite database path is fixed at `/aggregation/data/data.sqlite`.
+- Snapshot files are runtime artifacts and must be written under `/aggregation/data/snapshots`.
+- The `/aggregation/snapshot` folder is code-only (snapshot creation/management logic), not a
+  destination for generated snapshot files.
+- Runtime file locations are fixed and not user-configurable via API request payloads, flags, or env vars.
+- Testing runtime data is isolated under `/aggregation/test-data`.
+- Testing DB files are named `/aggregation/test-data/<testName>-test-data.sqlite`.
+- Testing snapshot files are named
+  `/aggregation/test-data/snapshots/<testName>-<snapshotName>-snapshot.sqlite`.
+- `testName` and `snapshotName` use lowercase slugs only:
+  `^[a-z0-9]+(?:-[a-z0-9]+)*$`.
+
+### Dense blob layout (canonical)
+Constants:
+- B = 2016 buckets/week
+- C = 5 clocks
+- G = B * C = 10080 values per “bucket group”
+- N = numStates
+
+Clock ordering within each group of 10080:
+0) UTC (2016)
+1) Local (2016)
+2) Mean solar (2016)
+3) Apparent solar (2016)
+4) Unequal hours (2016)
+
+Blob structure for one (controlId, modelId, quarterIndex):
+
+1) Holding times (milliseconds), grouped by state:
+- state 0 holding: G values
+- state 1 holding: G values
+- ...
+- state N-1 holding: G values
+
+2) Transition counts, grouped by (fromState, toState) excluding diagonal:
+- (0→1), (0→2), ..., (0→N-1)
+- (1→0), (1→2), ..., (1→N-1)
+- ...
+- (N-1→0), (N-1→1), ..., (N-1→N-2)
+
+Total stored values:
+- (N + N*(N-1)) * G = N^2 * G
+
+Index math (zero-based):
+
+- `holdIndex(s,c,b) = (s*G) + (c*B) + b`
+
+Transition group indexing:
+- `offsetWithinFromBlock(from,to) = (to < from) ? to : (to - 1)`
+- `transGroupIndex(from,to) = from*(N-1) + offsetWithinFromBlock(from,to)`
+
+- `transIndex(from,to,c,b) = (N*G) + (transGroupIndex(from,to)*G) + (c*B) + b`
+
+Numeric encoding decision:
+- Store all blob values as unsigned 64-bit integers (u64) in little-endian.
+  - holding times: elapsed milliseconds
+  - transition counts: integer increments
+
+### Dagster snapshot rule (analytics input)
+Dagster analytics must read from a SQLite snapshot file, not the live DB.
+
+A daily cadence (about once per day) is the default.
+
+Snapshot discovery convention:
+- Dagster reads from the newest `*.sqlite` file in `/aggregation/data/snapshots`
+  (latest by modification time).
+
+Snapshot export convention:
+- Aggregation snapshots are written under `/aggregation/data/snapshots`.
+- Snapshot filenames include a timestamp (date/time) to enable ordering.
+- Snapshot filenames keep the existing `snapshot` prefix followed by a timestamp.
+
+Testing snapshot convention:
+- Testing snapshots are on-demand only (not scheduled).
+- Testing snapshot exports overwrite existing files with the same
+  `<testName>-<snapshotName>-snapshot.sqlite` name.
+
+### API topology (aggregation service)
+- One binary serves two HTTP APIs in parallel:
+  - Main API on port `8080` (application layer).
+  - Testing API on port `8081` (internal/testing only).
+- Main and testing APIs share the same endpoint paths for ingestion and snapshots:
+  - `POST /v1/holding-intervals`
+  - `POST /v1/transitions`
+  - `POST /v1/snapshots`
+- Main and testing APIs must use the same aggregation logic implementation for
+  holding and transition ingestion.
+- Testing API adds `POST /v1/reset` (testing-only). No reset endpoint exists on the main API.
+- Main API payloads do not accept path/database overrides.
+- Testing API payloads include `testName` for all ingestion/snapshot requests, and
+  include `snapshotName` for snapshot requests.
+- Testing ingestion appends/aggregates into existing test DB files (no implicit reset).
+- Testing data paths must never touch main data paths.
+
+### Hypothesis (analytics intent)
+For a given control and time-of-week (per clock), multiple automation models may
+have been active historically. The hypothesis is:
+1) Holding time reflects what the automation model caused the system to do.
+2) User-initiated transitions reflect what the user prefers (corrections).
+3) If inference is correct, preference estimates should converge across models:
+   raw occupancy may differ, but inferred preference (via CTMC stationary
+   distribution) should align across models for the same control/time bucket.
+
+### KDE (smoothing)
+- KDE smooths sparse bucketed data across nearby time-of-week buckets (cyclic).
+- KDE produces smoothed sufficient statistics:
+  - smoothed holding times per state
+  - smoothed user-transition counts between states
+- KDE is applied before CTMC estimation.
+
+### CTMC (preference estimation)
+- Build a CTMC per control and per query time (clock, time-of-week).
+- Rates for i != j are proportional to user transitions i->j divided by holding
+  time in state i.
+- The stationary distribution of the CTMC is treated as the preference estimate.
+
+### Code readability and reviewer UX
+- Public functions and non-trivial internal helpers must include concise doc comments.
+- Comments should explain intent and invariants ("why"), not restate obvious syntax.
+- Non-obvious code paths (time boundary math, index math, transaction semantics,
+  SQL generation, API contract validation) require short inline rationale comments.
+- Avoid magic numbers when domain constants exist; use named constants for clock
+  indices, bucket dimensions, status codes, and other domain identifiers.
+- Prefer small focused helpers when one function mixes multiple concerns
+  (validation, transformation/splitting, persistence, response shaping).
