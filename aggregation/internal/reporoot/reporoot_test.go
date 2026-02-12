@@ -3,6 +3,7 @@ package reporoot
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -108,6 +109,9 @@ func TestFindResolvesSymlinkedStart(t *testing.T) {
 	linkedParent := t.TempDir()
 	linkPath := filepath.Join(linkedParent, "linked-start")
 	if err := os.Symlink(realStart, linkPath); err != nil {
+		if isSymlinkUnsupported(err) {
+			t.Skipf("symlinks not permitted in this environment: %v", err)
+		}
 		t.Fatalf("symlink start: %v", err)
 	}
 
@@ -126,4 +130,17 @@ func TestFindResolvesSymlinkedStart(t *testing.T) {
 	if gotResolved != rootResolved {
 		t.Fatalf("Find(%q) = %q, want %q", linkPath, gotResolved, rootResolved)
 	}
+}
+
+// isSymlinkUnsupported returns true when the error indicates symlinks are not
+// permitted in this environment (e.g., Windows, restricted filesystems).
+func isSymlinkUnsupported(err error) bool {
+	if err == nil {
+		return false
+	}
+	if os.IsPermission(err) {
+		return true
+	}
+	s := strings.ToLower(err.Error())
+	return strings.Contains(s, "not permitted") || strings.Contains(s, "operation not supported")
 }

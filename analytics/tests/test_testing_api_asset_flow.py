@@ -22,6 +22,9 @@ except Exception:  # pragma: no cover - environment-dependent import
     asset = None
     materialize = None
 
+# Max attempts to pick a test port distinct from main_port; avoids infinite loop.
+MAX_PORT_ATTEMPTS = 100
+
 
 def _pick_free_port() -> int:
     """Pick an ephemeral localhost TCP port for test server startup."""
@@ -115,7 +118,14 @@ class TestingAPIAssetFlowTests(unittest.TestCase):
         aggregation_dir = repo_root / "aggregation"
         main_port = _pick_free_port()
         test_port = _pick_free_port()
+        attempts = 0
         while test_port == main_port:
+            attempts += 1
+            if attempts >= MAX_PORT_ATTEMPTS:
+                raise RuntimeError(
+                    f"Could not pick a test port distinct from main_port={main_port} "
+                    f"after {MAX_PORT_ATTEMPTS} attempts"
+                )
             test_port = _pick_free_port()
         main_addr = f"127.0.0.1:{main_port}"
         test_addr = f"127.0.0.1:{test_port}"

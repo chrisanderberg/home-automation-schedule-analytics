@@ -32,8 +32,6 @@ func Find(start string) (string, bool) {
 	cur, err := filepath.EvalSymlinks(start)
 	if err != nil {
 		cur = filepath.Clean(start)
-	} else {
-		cur = filepath.Clean(cur)
 	}
 	for {
 		if Is(cur) {
