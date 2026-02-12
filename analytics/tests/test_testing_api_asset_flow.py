@@ -114,6 +114,8 @@ class TestingAPIAssetFlowTests(unittest.TestCase):
         aggregation_dir = repo_root / "aggregation"
         main_port = _pick_free_port()
         test_port = _pick_free_port()
+        while test_port == main_port:
+            test_port = _pick_free_port()
         main_addr = f"127.0.0.1:{main_port}"
         test_addr = f"127.0.0.1:{test_port}"
         testing_api_url = f"http://{test_addr}"
@@ -190,6 +192,10 @@ class TestingAPIAssetFlowTests(unittest.TestCase):
                 snapshots_dir = snapshot_path.parent
                 try:
                     snapshots_dir.rmdir()
+                except OSError:
+                    pass
+                try:
+                    snapshots_dir.parent.rmdir()
                 except OSError:
                     pass
                 for path in (db_path, Path(str(db_path) + "-wal"), Path(str(db_path) + "-shm")):

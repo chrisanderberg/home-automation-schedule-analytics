@@ -151,9 +151,7 @@ func (s *Server) handleSnapshots(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct{}
-	decoder := json.NewDecoder(r.Body)
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&req); err != nil && err != io.EOF {
+	if err := decodeStrictJSON(r.Body, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
@@ -185,7 +183,10 @@ func writeMethodNotAllowed(w http.ResponseWriter, allowedMethod string) {
 func decodeStrictJSON(r io.Reader, v any) error {
 	decoder := json.NewDecoder(r)
 	decoder.DisallowUnknownFields()
-	return decoder.Decode(v)
+	if err := decoder.Decode(v); err != nil && err != io.EOF {
+		return err
+	}
+	return nil
 }
 
 // WithContext injects a fixed context into a handler; primarily used by tests.

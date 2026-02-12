@@ -11,14 +11,20 @@ type Marker struct {
 	RequireDir bool
 }
 
-// RootMarkers defines the default root markers used by Is.
+// rootMarkers defines the default root markers used by Is.
 //
 // .reporoot is the preferred explicit sentinel to avoid surprising matches with
 // nested project directories. go.work and .git are compatibility fallbacks.
-var RootMarkers = []Marker{
+var rootMarkers = []Marker{
 	{Name: ".reporoot"},
 	{Name: "go.work"},
 	{Name: ".git", RequireDir: true},
+}
+
+// RootMarkers returns a copy of the default root markers used by Is.
+// Callers cannot mutate the internal slice.
+func RootMarkers() []Marker {
+	return append([]Marker(nil), rootMarkers...)
 }
 
 // Find searches upward for the monorepo root marker.
@@ -38,7 +44,7 @@ func Find(start string) (string, bool) {
 
 // Is reports whether the path looks like the repository root.
 func Is(path string) bool {
-	for _, marker := range RootMarkers {
+	for _, marker := range rootMarkers {
 		info, err := os.Stat(filepath.Join(path, marker.Name))
 		if err != nil {
 			continue

@@ -65,8 +65,16 @@ func TestFindSearchesUpwardToMarker(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected Find(%q) to succeed", start)
 	}
-	if got != root {
-		t.Fatalf("Find(%q) = %q, want %q", start, got, root)
+	rootResolved, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		t.Fatalf("EvalSymlinks(root): %v", err)
+	}
+	gotResolved, err := filepath.EvalSymlinks(got)
+	if err != nil {
+		t.Fatalf("EvalSymlinks(got): %v", err)
+	}
+	if gotResolved != rootResolved {
+		t.Fatalf("Find(%q) = %q, want %q", start, gotResolved, rootResolved)
 	}
 }
 
