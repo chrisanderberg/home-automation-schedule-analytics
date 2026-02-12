@@ -1,6 +1,7 @@
 """Integration test for testing-API snapshot export materialized as an asset."""
 
 import json
+import os
 import shutil
 import socket
 import sqlite3
@@ -140,7 +141,7 @@ class TestingAPIAssetFlowTests(unittest.TestCase):
         try:
             _wait_for_health(testing_api_url)
 
-            test_name = "asset-flow"
+            test_name = f"asset-flow-{os.getpid()}-{test_port}"
             snapshot_name = "contains-control"
             db_path = repo_root / "test-data" / f"{test_name}-test-data.sqlite"
             snapshot_path = repo_root / "test-data" / "snapshots" / f"{test_name}-{snapshot_name}-snapshot.sqlite"

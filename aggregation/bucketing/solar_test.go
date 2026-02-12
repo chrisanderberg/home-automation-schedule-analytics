@@ -91,6 +91,22 @@ func TestSolarCoordinateValidation(t *testing.T) {
 			}
 		})
 	}
+	for _, tc := range bucketChecks {
+		t.Run("bucket_"+tc.name+"_negative_oob", func(t *testing.T) {
+			_, err := tc.fn(timestamp, -91, 0)
+			if !errors.Is(err, ErrInvalidCoordinates) {
+				t.Fatalf("expected ErrInvalidCoordinates, got %v", err)
+			}
+		})
+	}
+	for _, tc := range bucketChecks {
+		t.Run("bucket_"+tc.name+"_boundaries_allowed", func(t *testing.T) {
+			_, err := tc.fn(timestamp, -90, 180)
+			if errors.Is(err, ErrInvalidCoordinates) {
+				t.Fatalf("expected boundary coordinates to be allowed, got %v", err)
+			}
+		})
+	}
 
 	splitChecks := []struct {
 		name string
@@ -105,6 +121,22 @@ func TestSolarCoordinateValidation(t *testing.T) {
 			_, err := tc.fn(timestamp, timestamp+60_000, 0, 200)
 			if !errors.Is(err, ErrInvalidCoordinates) {
 				t.Fatalf("expected ErrInvalidCoordinates, got %v", err)
+			}
+		})
+	}
+	for _, tc := range splitChecks {
+		t.Run("split_"+tc.name+"_negative_oob", func(t *testing.T) {
+			_, err := tc.fn(timestamp, timestamp+60_000, -91, 0)
+			if !errors.Is(err, ErrInvalidCoordinates) {
+				t.Fatalf("expected ErrInvalidCoordinates, got %v", err)
+			}
+		})
+	}
+	for _, tc := range splitChecks {
+		t.Run("split_"+tc.name+"_boundaries_allowed", func(t *testing.T) {
+			_, err := tc.fn(timestamp, timestamp+60_000, 90, -180)
+			if errors.Is(err, ErrInvalidCoordinates) {
+				t.Fatalf("expected boundary coordinates to be allowed, got %v", err)
 			}
 		})
 	}

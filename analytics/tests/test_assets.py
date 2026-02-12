@@ -19,8 +19,8 @@ dagster_stub.asset = lambda fn: fn
 dagster_stub.sensor = lambda **_kwargs: (lambda fn: fn)
 sys.modules["dagster"] = dagster_stub
 
-from analytics.assets import _latest_snapshot_path_in_dir, _snapshot_root, _testing_snapshot_root
-from analytics.tests._helpers import repository_root_for_test
+from analytics.assets import _latest_snapshot_path_in_dir, _snapshot_root, _testing_snapshot_root  # noqa: E402
+from analytics.tests._helpers import repository_root_for_test  # noqa: E402
 
 
 class LatestSnapshotPathTests(unittest.TestCase):

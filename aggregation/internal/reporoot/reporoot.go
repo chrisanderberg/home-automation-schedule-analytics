@@ -29,7 +29,12 @@ func RootMarkers() []Marker {
 
 // Find searches upward for the monorepo root marker.
 func Find(start string) (string, bool) {
-	cur := filepath.Clean(start)
+	cur, err := filepath.EvalSymlinks(start)
+	if err != nil {
+		cur = filepath.Clean(start)
+	} else {
+		cur = filepath.Clean(cur)
+	}
 	for {
 		if Is(cur) {
 			return cur, true

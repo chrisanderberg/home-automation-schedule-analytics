@@ -162,4 +162,10 @@ func TestExportForTestRejectsPathTraversal(t *testing.T) {
 	if _, err := ExportForTest(ctx, db, "case", "../snapshot"); err == nil {
 		t.Fatalf("expected path traversal snapshotName to fail")
 	}
+	if _, err := ExportForTest(ctx, db, "foo/bar", "snapshot"); err == nil {
+		t.Fatalf("expected path separator in testName to fail")
+	}
+	if _, err := ExportForTest(ctx, db, "case", "foo/bar"); err == nil {
+		t.Fatalf("expected path separator in snapshotName to fail")
+	}
 }

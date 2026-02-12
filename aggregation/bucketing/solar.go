@@ -1,6 +1,7 @@
 package bucketing
 
 import (
+	"errors"
 	"math"
 	"time"
 )
@@ -10,6 +11,9 @@ func durationFromOffsetMinutes(offsetMinutes float64) time.Duration {
 }
 
 func validateCoordinates(latitude, longitude float64) error {
+	if math.IsNaN(latitude) || math.IsNaN(longitude) || math.IsInf(latitude, 0) || math.IsInf(longitude, 0) {
+		return ErrInvalidCoordinates
+	}
 	if latitude > 90 || latitude < -90 || longitude > 180 || longitude < -180 {
 		return ErrInvalidCoordinates
 	}
@@ -124,7 +128,7 @@ func SplitIntervalUnequalHours(startMs, endMs int64, latitude, longitude float64
 	for cur < endMs {
 		bucket, err := BucketAtUnequalHours(cur, latitude, longitude)
 		if err != nil {
-			if err == ErrUndefinedClock {
+			if errors.Is(err, ErrUndefinedClock) {
 				return nil, ErrUndefinedClock
 			}
 			return nil, err

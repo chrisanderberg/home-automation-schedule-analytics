@@ -93,3 +93,37 @@ func TestFindReturnsFalseWithoutMarker(t *testing.T) {
 		t.Fatalf("expected empty root when not found, got %q", got)
 	}
 }
+
+func TestFindResolvesSymlinkedStart(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, ".reporoot"), []byte(""), 0o644); err != nil {
+		t.Fatalf("write marker: %v", err)
+	}
+
+	realStart := filepath.Join(root, "aggregation", "internal")
+	if err := os.MkdirAll(realStart, 0o755); err != nil {
+		t.Fatalf("mkdir real start: %v", err)
+	}
+
+	linkedParent := t.TempDir()
+	linkPath := filepath.Join(linkedParent, "linked-start")
+	if err := os.Symlink(realStart, linkPath); err != nil {
+		t.Fatalf("symlink start: %v", err)
+	}
+
+	got, ok := Find(linkPath)
+	if !ok {
+		t.Fatalf("expected Find(%q) to succeed", linkPath)
+	}
+	gotResolved, err := filepath.EvalSymlinks(got)
+	if err != nil {
+		t.Fatalf("EvalSymlinks(got): %v", err)
+	}
+	rootResolved, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		t.Fatalf("EvalSymlinks(root): %v", err)
+	}
+	if gotResolved != rootResolved {
+		t.Fatalf("Find(%q) = %q, want %q", linkPath, gotResolved, rootResolved)
+	}
+}
