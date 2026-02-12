@@ -68,9 +68,6 @@ func IngestHolding(ctx context.Context, db *sql.DB, cfg Config, input HoldingInp
 		key := storage.AggregateKey{ControlID: input.ControlID, ModelID: input.ModelID, QuarterIndex: span.QuarterIndex}
 		updateErr := applyHoldingQuarter(ctx, tx, key, control.NumStates, input.State, span.StartMs, span.EndMs, loc)
 		if updateErr != nil {
-			if IsValidationError(updateErr) {
-				return updateErr
-			}
 			return updateErr
 		}
 	}

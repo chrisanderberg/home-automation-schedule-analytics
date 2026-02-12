@@ -40,6 +40,8 @@ Before marking a milestone complete:
 - If something is not specified, do not guess silently.
 - Prefer parameterization when possible.
 - Record any necessary assumptions in `DECISIONS.md`.
+- If analytics tooling appears missing (for example `dagster` not found/importable), ask the user for environment activation steps (such as conda/venv) before proceeding.
+- Do not require machine-specific environment details to be committed; keep those in local-only setup files when needed.
 
 ### Output format expectations (for coding agents)
 For any milestone implementation, include:

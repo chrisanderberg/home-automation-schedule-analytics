@@ -24,6 +24,11 @@ dagster dev
 Expected result:
 - Dagster UI starts and project definitions load.
 
+If `dagster dev` fails with missing executable/module errors:
+- Ask for project-specific environment activation steps first (for example conda, venv, or other local workflow).
+- Avoid committing machine-specific environment details (such as personal conda paths) to tracked repo docs.
+- Keep local environment specifics in local-only setup files or personal shell config.
+
 ## Analytics tests
 Run from `analytics`:
 

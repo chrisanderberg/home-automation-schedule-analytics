@@ -8,7 +8,7 @@ dependencies = [
 ]
 
 [tool.dagster]
-module_name = "analytics.definitions"
+module_name = "definitions"
 
 [build-system]
 requires = ["setuptools>=68", "wheel"]
