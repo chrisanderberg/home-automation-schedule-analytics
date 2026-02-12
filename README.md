@@ -8,7 +8,9 @@ Monorepo for a home automation aggregation service and analytics reporting.
 
 ## Start here
 - Agent/process contract: `AGENTS.md`
-- Product requirements: `REQUIREMENTS.md`
+- Requirements umbrella: `REQUIREMENTS.md`
+- Aggregation requirements: `AGGREGATION_REQUIREMENTS.md`
+- Analytics requirements: `ANALYTICS_REQUIREMENTS.md`
 - Milestone order/status: `PLAN.md`
 - Current execution context: `CURRENT.md`
 - Durable progress log: `STATUS.md`

@@ -18,6 +18,15 @@ This file is canonical for system structure and component interaction.
 5. Blobs and control metadata are persisted via `/aggregation/storage`.
 6. `/aggregation/snapshot` exports SQLite snapshots for Dagster.
 7. `/analytics` consumes newest snapshot from `/aggregation/data/snapshots`.
+8. Analytics decodes dense blobs into sufficient statistics.
+9. Analytics applies KDE smoothing across cyclic time-of-week buckets.
+10. Analytics estimates CTMC rates and stationary distributions per control/time slice.
+11. Dagster materializes analytics metadata/artifacts for run inspection.
+
+## Requirements map
+- Shared guardrails: `REQUIREMENTS.md`
+- Aggregation behavior: `AGGREGATION_REQUIREMENTS.md`
+- Analytics behavior: `ANALYTICS_REQUIREMENTS.md`
 
 ## Runtime topology
 - One binary serves two APIs:

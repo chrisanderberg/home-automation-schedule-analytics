@@ -4,10 +4,13 @@
 
 ### Authority and scope
 - This file is the single source of truth for how to work in this repo.
-- Product/system requirements are canonical in `REQUIREMENTS.md`.
+- Product/system requirements are canonical in:
+  - `REQUIREMENTS.md` (umbrella + shared guardrails)
+  - `AGGREGATION_REQUIREMENTS.md` (aggregation domain)
+  - `ANALYTICS_REQUIREMENTS.md` (analytics domain)
 - Milestone sequencing is canonical in `PLAN.md`.
 - Assumptions and decisions are canonical in `DECISIONS.md`.
-- Do not introduce new semantics that contradict `REQUIREMENTS.md`.
+- Do not introduce new semantics that contradict the applicable canonical requirements document(s).
 - Keep changes tightly scoped to the current milestone in `PLAN.md`.
 
 ### Requirement change control
@@ -63,7 +66,9 @@ Additional run/build commands will be added once the repo layout is established.
 
 ## Canonical documents
 
-- Requirements: `REQUIREMENTS.md`
+- Requirements umbrella: `REQUIREMENTS.md`
+- Aggregation requirements: `AGGREGATION_REQUIREMENTS.md`
+- Analytics requirements: `ANALYTICS_REQUIREMENTS.md`
 - Plan: `PLAN.md`
 - Assumptions / decisions log: `DECISIONS.md`
 - Current execution context: `CURRENT.md`

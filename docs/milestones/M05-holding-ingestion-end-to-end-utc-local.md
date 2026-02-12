@@ -7,8 +7,12 @@ This file is canonical for Milestone 05 execution details.
 - Holding ingestion end-to-end (UTC + Local)
 
 ## Source of truth references
-- Requirements: 
+- Requirements umbrella:
   - ../../REQUIREMENTS.md
+- Aggregation requirements:
+  - ../../AGGREGATION_REQUIREMENTS.md
+- Analytics requirements:
+  - ../../ANALYTICS_REQUIREMENTS.md
 - Plan order: 
   - ../../PLAN.md
 - Process and DoD:

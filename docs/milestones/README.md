@@ -23,3 +23,8 @@ This folder is canonical for per-milestone execution context and acceptance chec
 - `M11-storage-path-migration-dagster-path-alignment.md`
 - `M12-dual-port-api-topology-isolated-testing-api.md`
 - `M13-testing-data-contract-slug-validation-reset.md`
+- `M14-analytics-snapshot-decode-fixture-contracts.md`
+- `M15-kde-smoothing-golden-tests.md`
+- `M16-ctmc-stationary-distribution-safeguards.md`
+- `M17-dagster-analytics-assets-idempotent-orchestration.md`
+- `M18-analytics-e2e-validation-report-contract.md`

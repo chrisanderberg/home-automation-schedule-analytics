@@ -7,8 +7,12 @@ This file is canonical for Milestone 11 execution details.
 - Storage path migration + Dagster path alignment (`data/data.sqlite` and `data/snapshots`)
 
 ## Source of truth references
-- Requirements: 
+- Requirements umbrella:
   - ../../REQUIREMENTS.md
+- Aggregation requirements:
+  - ../../AGGREGATION_REQUIREMENTS.md
+- Analytics requirements:
+  - ../../ANALYTICS_REQUIREMENTS.md
 - Plan order: 
   - ../../PLAN.md
 - Process and DoD:

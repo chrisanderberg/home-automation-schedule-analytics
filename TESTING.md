@@ -24,6 +24,16 @@ dagster dev
 Expected result:
 - Dagster UI starts and project definitions load.
 
+## Analytics tests
+Run from `analytics`:
+
+```bash
+PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py'
+```
+
+Expected result:
+- All analytics unit tests pass.
+
 ## Test-data naming conventions
 - Testing DB path: `/aggregation/test-data/<testName>-test-data.sqlite`
 - Testing snapshot path: `/aggregation/test-data/snapshots/<testName>-<snapshotName>-snapshot.sqlite`
