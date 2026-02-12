@@ -56,6 +56,7 @@ func TestTestingControlsUpsertWritesControl(t *testing.T) {
 	t.Cleanup(func() {
 		_ = os.Chdir(prevWD)
 	})
+	setTestDataDirForTest(t, outputDir)
 
 	payload := map[string]any{
 		"testName":    "case-one",
@@ -74,7 +75,7 @@ func TestTestingControlsUpsertWritesControl(t *testing.T) {
 		t.Fatalf("expected 202, got %d, body=%s", w.Code, w.Body.String())
 	}
 
-	dbPath := filepath.Clean(filepath.Join(outputDir, "..", "test-data", "case-one-test-data.sqlite"))
+	dbPath := testingDBPath("case-one")
 	db, err := storage.Open(dbPath)
 	if err != nil {
 		t.Fatalf("open db: %v", err)
@@ -106,6 +107,7 @@ func TestTestingHoldingWritesToTestSpecificDB(t *testing.T) {
 	t.Cleanup(func() {
 		_ = os.Chdir(prevWD)
 	})
+	setTestDataDirForTest(t, outputDir)
 
 	seedTestControl(t, "case-one", storage.Control{ControlID: "c1", ControlType: storage.ControlTypeDiscrete, NumStates: 2})
 
@@ -127,7 +129,7 @@ func TestTestingHoldingWritesToTestSpecificDB(t *testing.T) {
 		t.Fatalf("expected 202, got %d, body=%s", w.Code, w.Body.String())
 	}
 
-	dbPath := filepath.Clean(filepath.Join(outputDir, "..", "test-data", "case-one-test-data.sqlite"))
+	dbPath := testingDBPath("case-one")
 	if _, err := os.Stat(dbPath); err != nil {
 		t.Fatalf("expected test db to exist: %v", err)
 	}
@@ -162,6 +164,7 @@ func TestTestingSnapshotUsesRequestedNames(t *testing.T) {
 	t.Cleanup(func() {
 		_ = os.Chdir(prevWD)
 	})
+	setTestDataDirForTest(t, outputDir)
 
 	seedTestControl(t, "case-one", storage.Control{ControlID: "c1", ControlType: storage.ControlTypeDiscrete, NumStates: 2})
 
@@ -181,7 +184,7 @@ func TestTestingSnapshotUsesRequestedNames(t *testing.T) {
 	if resp["snapshotName"] != "sanity-check" {
 		t.Fatalf("snapshot name mismatch: got %q want %q", resp["snapshotName"], "sanity-check")
 	}
-	path := filepath.Clean(filepath.Join(outputDir, "..", "test-data", "snapshots", "case-one-sanity-check-snapshot.sqlite"))
+	path := filepath.Join(outputDir, "test-data", "snapshots", "case-one-sanity-check-snapshot.sqlite")
 	wantSuffix := filepath.Join("test-data", "snapshots", "case-one-sanity-check-snapshot.sqlite")
 	if !strings.HasSuffix(path, wantSuffix) {
 		t.Fatalf("snapshot path mismatch: got %s want suffix %s", path, wantSuffix)
@@ -210,6 +213,7 @@ func TestTestingSnapshotContainsSeededControl(t *testing.T) {
 	t.Cleanup(func() {
 		_ = os.Chdir(prevWD)
 	})
+	setTestDataDirForTest(t, outputDir)
 
 	seedTestControl(t, testName, storage.Control{ControlID: "c1", ControlType: storage.ControlTypeDiscrete, NumStates: 2})
 
@@ -238,7 +242,7 @@ func TestTestingSnapshotContainsSeededControl(t *testing.T) {
 		t.Fatalf("expected snapshot 200, got %d, body=%s", snapshotRes.Code, snapshotRes.Body.String())
 	}
 
-	snapshotPath := filepath.Clean(filepath.Join("..", "test-data", "snapshots", testName+"-"+snapshotName+"-snapshot.sqlite"))
+	snapshotPath := filepath.Join(outputDir, "test-data", "snapshots", testName+"-"+snapshotName+"-snapshot.sqlite")
 	db, err := storage.Open(snapshotPath)
 	if err != nil {
 		t.Fatalf("open snapshot db: %v", err)
@@ -278,6 +282,7 @@ func TestTestingResetRemovesOnlyRequestedTestDB(t *testing.T) {
 	t.Cleanup(func() {
 		_ = os.Chdir(prevWD)
 	})
+	setTestDataDirForTest(t, outputDir)
 
 	seedTestControl(t, "case-one", storage.Control{ControlID: "c1", ControlType: storage.ControlTypeDiscrete, NumStates: 2})
 	seedTestControl(t, "case-two", storage.Control{ControlID: "c1", ControlType: storage.ControlTypeDiscrete, NumStates: 2})
@@ -289,8 +294,8 @@ func TestTestingResetRemovesOnlyRequestedTestDB(t *testing.T) {
 		t.Fatalf("expected 200, got %d", w.Code)
 	}
 
-	caseOnePath := filepath.Clean(filepath.Join(outputDir, "..", "test-data", "case-one-test-data.sqlite"))
-	caseTwoPath := filepath.Clean(filepath.Join(outputDir, "..", "test-data", "case-two-test-data.sqlite"))
+	caseOnePath := filepath.Join(outputDir, "test-data", "case-one-test-data.sqlite")
+	caseTwoPath := filepath.Join(outputDir, "test-data", "case-two-test-data.sqlite")
 	if _, err := os.Stat(caseOnePath); !os.IsNotExist(err) {
 		t.Fatalf("expected case-one db removed, stat err=%v", err)
 	}
@@ -309,4 +314,9 @@ func seedTestControl(t *testing.T, testName string, control storage.Control) {
 	if err := storage.UpsertControl(context.Background(), db, control); err != nil {
 		t.Fatalf("upsert control: %v", err)
 	}
+}
+
+func setTestDataDirForTest(t *testing.T, outputDir string) {
+	t.Helper()
+	t.Setenv("TEST_DATA_DIR", filepath.Join(outputDir, "test-data"))
 }

@@ -20,7 +20,7 @@ from analytics.assets import _latest_snapshot_path_in_dir, _snapshot_root, _test
 
 class LatestSnapshotPathTests(unittest.TestCase):
     def test_fixed_snapshot_dir_is_data_snapshots(self):
-        expected = _repository_root_for_test() / "data" / "snapshots"
+        expected = _snapshot_path_root_for_test()
         self.assertEqual(_snapshot_root(), expected)
 
     def test_selects_newest_sqlite_file(self):

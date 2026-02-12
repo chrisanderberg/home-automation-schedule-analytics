@@ -70,10 +70,18 @@ def _post_json(url: str, payload: dict) -> tuple[int, dict]:
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=10) as resp:
-        body = resp.read().decode("utf-8")
-        parsed = json.loads(body) if body else {}
-        return resp.status, parsed
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            body = resp.read().decode("utf-8")
+            parsed = json.loads(body) if body else {}
+            return resp.status, parsed
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8") if exc.fp is not None else ""
+        try:
+            parsed = json.loads(body) if body else {}
+        except json.JSONDecodeError:
+            parsed = {"error": body} if body else {}
+        return exc.code, parsed
 
 
 def _require_status(status: int, expected: int, step: str, payload: dict) -> None:
@@ -81,15 +89,19 @@ def _require_status(status: int, expected: int, step: str, payload: dict) -> Non
         raise RuntimeError(f"{step} failed: expected {expected}, got {status}, payload={payload}")
 
 
-@asset
-def snapshot_summary(context: AssetExecutionContext) -> MaterializeResult:
+def _summarize_snapshot(
+    context: AssetExecutionContext, snapshot_path_fn, label: str
+) -> MaterializeResult:
     try:
-        snapshot_path = _latest_snapshot_path()
+        snapshot_path = snapshot_path_fn()
     except RuntimeError as exc:
         context.log.warning(str(exc))
         return MaterializeResult(metadata={"snapshot_missing": True})
 
-    context.log.info("using snapshot %s", snapshot_path)
+    if label == "testing":
+        context.log.info("using testing snapshot %s", snapshot_path)
+    else:
+        context.log.info("using snapshot %s", snapshot_path)
 
     conn = sqlite3.connect(snapshot_path)
     try:
@@ -113,40 +125,16 @@ def snapshot_summary(context: AssetExecutionContext) -> MaterializeResult:
             "aggregates_count": aggregates_count,
         }
     )
+
+
+@asset
+def snapshot_summary(context: AssetExecutionContext) -> MaterializeResult:
+    return _summarize_snapshot(context, _latest_snapshot_path, "main")
 
 
 @asset
 def testing_snapshot_summary(context: AssetExecutionContext) -> MaterializeResult:
-    try:
-        snapshot_path = _latest_testing_snapshot_path()
-    except RuntimeError as exc:
-        context.log.warning(str(exc))
-        return MaterializeResult(metadata={"snapshot_missing": True})
-
-    context.log.info("using testing snapshot %s", snapshot_path)
-
-    conn = sqlite3.connect(snapshot_path)
-    try:
-        cur = conn.cursor()
-        try:
-            cur.execute("SELECT COUNT(*) FROM controls")
-            controls_count = cur.fetchone()[0]
-            cur.execute("SELECT COUNT(*) FROM aggregates")
-            aggregates_count = cur.fetchone()[0]
-        except (sqlite3.OperationalError, sqlite3.DatabaseError) as exc:
-            message = f"failed snapshot query for {snapshot_path}: {exc}"
-            context.log.error(message)
-            raise RuntimeError(message) from exc
-    finally:
-        conn.close()
-
-    return MaterializeResult(
-        metadata={
-            "snapshot_path": str(snapshot_path),
-            "controls_count": controls_count,
-            "aggregates_count": aggregates_count,
-        }
-    )
+    return _summarize_snapshot(context, _latest_testing_snapshot_path, "testing")
 
 
 @asset
@@ -200,6 +188,10 @@ def testing_api_snapshot_validation(context: AssetExecutionContext) -> Materiali
             {"testName": test_name, "snapshotName": snapshot_name},
         )
         _require_status(status, 200, "snapshot export", payload)
+    except urllib.error.HTTPError as exc:
+        message = f"testing API request failed at {base_url}: status={exc.code} reason={exc.reason} error={exc}"
+        context.log.warning(message)
+        return MaterializeResult(metadata={"snapshot_missing": True, "error": message})
     except urllib.error.URLError as exc:
         message = f"testing API unavailable at {base_url}: {exc}"
         context.log.warning(message)
@@ -211,8 +203,13 @@ def testing_api_snapshot_validation(context: AssetExecutionContext) -> Materiali
 
     conn = sqlite3.connect(snapshot_path)
     try:
-        controls_count = conn.execute("SELECT COUNT(*) FROM controls").fetchone()[0]
-        aggregates_count = conn.execute("SELECT COUNT(*) FROM aggregates").fetchone()[0]
+        try:
+            controls_count = conn.execute("SELECT COUNT(*) FROM controls").fetchone()[0]
+            aggregates_count = conn.execute("SELECT COUNT(*) FROM aggregates").fetchone()[0]
+        except (sqlite3.OperationalError, sqlite3.DatabaseError) as exc:
+            message = f"failed snapshot query for {snapshot_path}: {exc}"
+            context.log.error(message)
+            return MaterializeResult(metadata={"snapshot_missing": True, "error": message})
     finally:
         conn.close()
 

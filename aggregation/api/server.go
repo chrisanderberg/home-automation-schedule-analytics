@@ -77,6 +77,10 @@ func (s *Server) handleControls(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid controlType")
 		return
 	}
+	if len(req.StateLabels) > 0 && len(req.StateLabels) != req.NumStates {
+		writeError(w, http.StatusBadRequest, "stateLabels must have exactly NumStates elements when provided")
+		return
+	}
 
 	control := storage.Control{
 		ControlID:   req.ControlID,
@@ -129,7 +133,12 @@ func (s *Server) handleTransitions(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := r.Context()
 	if err := ingest.IngestTransition(ctx, s.db, s.cfg, input); err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		if ingest.IsValidationError(err) {
+			writeError(w, http.StatusBadRequest, "invalid input")
+			return
+		}
+		log.Printf("handleTransitions ingest failed: %v", err)
+		writeError(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
 	writeJSON(w, http.StatusAccepted, map[string]string{"status": "accepted"})

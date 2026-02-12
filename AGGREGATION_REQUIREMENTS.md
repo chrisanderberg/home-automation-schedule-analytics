@@ -94,6 +94,7 @@ The aggregation service stores:
 SQLite is the canonical storage format for aggregates.
 
 Runtime file locations:
+- All relative paths below are runtime contracts resolved from the repository root.
 - Live DB path fixed at `data/data.sqlite`.
 - Main snapshot files are shared runtime artifacts under `data/snapshots`.
 - `aggregation/snapshot` is code-only (snapshot logic), not a destination for generated files.
@@ -172,7 +173,11 @@ Testing snapshot convention:
 - Main and testing APIs must use the same aggregation logic implementation for control persistence and holding/transition ingestion.
 - Testing API adds `POST /v1/reset` (testing-only). No reset endpoint exists on the main API.
 - Main API payloads do not accept path/database overrides.
-- Testing API payloads include `testName` for all control/ingestion/snapshot requests, and include `snapshotName` for snapshot requests.
+- Testing API payload requirements:
+  - `POST /v1/controls` requires `testName`.
+  - `POST /v1/holding-intervals` requires `testName`.
+  - `POST /v1/transitions` requires `testName`.
+  - `POST /v1/snapshots` requires both `testName` and `snapshotName`.
 - Testing ingestion appends/aggregates into existing test DB files (no implicit reset).
 - Testing data paths must never touch main data paths.
 

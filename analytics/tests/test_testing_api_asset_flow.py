@@ -1,5 +1,4 @@
 import json
-import os
 import socket
 import sqlite3
 import subprocess
@@ -38,10 +37,18 @@ def _post_json(url: str, payload: dict) -> tuple[int, dict]:
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=5) as resp:
-        body = resp.read().decode("utf-8")
-        decoded = json.loads(body) if body else {}
-        return resp.status, decoded
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            body = resp.read().decode("utf-8")
+            decoded = json.loads(body) if body else {}
+            return resp.status, decoded
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8") if exc.fp is not None else ""
+        try:
+            decoded = json.loads(body) if body else {}
+        except json.JSONDecodeError:
+            decoded = {"error": body} if body else {}
+        return exc.code, decoded
 
 
 def _wait_for_health(base_url: str, timeout_seconds: float = 10.0) -> None:
@@ -60,8 +67,7 @@ def _wait_for_health(base_url: str, timeout_seconds: float = 10.0) -> None:
 
 def _seed_test_control(db_path: Path) -> None:
     db_path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(db_path)
-    try:
+    with sqlite3.connect(db_path) as conn:
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS controls (
@@ -91,8 +97,6 @@ def _seed_test_control(db_path: Path) -> None:
             ("c1", "discrete", 2, None),
         )
         conn.commit()
-    finally:
-        conn.close()
 
 
 @unittest.skipUnless(materialize is not None, "dagster is not available in this environment")
@@ -119,8 +123,8 @@ class TestingAPIAssetFlowTests(unittest.TestCase):
                 "UTC",
             ],
             cwd=aggregation_dir,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
             text=True,
         )
         try:
@@ -129,51 +133,63 @@ class TestingAPIAssetFlowTests(unittest.TestCase):
             test_name = "asset-flow"
             snapshot_name = "contains-control"
             db_path = repo_root / "test-data" / f"{test_name}-test-data.sqlite"
-            _seed_test_control(db_path)
-
-            status, _ = _post_json(
-                f"{testing_api_url}/v1/holding-intervals",
-                {
-                    "testName": test_name,
-                    "controlId": "c1",
-                    "modelId": "m1",
-                    "state": 1,
-                    "startTimeMs": 1578268800000,
-                    "endTimeMs": 1578269100000,
-                },
-            )
-            self.assertEqual(status, 202)
-
-            status, _ = _post_json(
-                f"{testing_api_url}/v1/snapshots",
-                {"testName": test_name, "snapshotName": snapshot_name},
-            )
-            self.assertEqual(status, 200)
-
             snapshot_path = repo_root / "test-data" / "snapshots" / f"{test_name}-{snapshot_name}-snapshot.sqlite"
-            self.assertTrue(snapshot_path.exists(), f"missing snapshot at {snapshot_path}")
+            try:
+                _seed_test_control(db_path)
 
-            @asset(name="exported_testing_snapshot")
-            def exported_testing_snapshot():
-                conn = sqlite3.connect(snapshot_path)
-                try:
-                    controls_count = conn.execute("SELECT COUNT(*) FROM controls").fetchone()[0]
-                    aggregates_count = conn.execute("SELECT COUNT(*) FROM aggregates").fetchone()[0]
-                finally:
-                    conn.close()
-
-                if controls_count < 1:
-                    raise RuntimeError("snapshot has no controls")
-                return MaterializeResult(
-                    metadata={
-                        "snapshot_path": str(snapshot_path),
-                        "controls_count": controls_count,
-                        "aggregates_count": aggregates_count,
-                    }
+                status, _ = _post_json(
+                    f"{testing_api_url}/v1/holding-intervals",
+                    {
+                        "testName": test_name,
+                        "controlId": "c1",
+                        "modelId": "m1",
+                        "state": 1,
+                        "startTimeMs": 1578268800000,
+                        "endTimeMs": 1578269100000,
+                    },
                 )
+                self.assertEqual(status, 202)
 
-            result = materialize([exported_testing_snapshot])
-            self.assertTrue(result.success)
+                status, _ = _post_json(
+                    f"{testing_api_url}/v1/snapshots",
+                    {"testName": test_name, "snapshotName": snapshot_name},
+                )
+                self.assertEqual(status, 200)
+
+                self.assertTrue(snapshot_path.exists(), f"missing snapshot at {snapshot_path}")
+
+                @asset(name="exported_testing_snapshot")
+                def exported_testing_snapshot():
+                    conn = sqlite3.connect(snapshot_path)
+                    try:
+                        controls_count = conn.execute("SELECT COUNT(*) FROM controls").fetchone()[0]
+                        aggregates_count = conn.execute("SELECT COUNT(*) FROM aggregates").fetchone()[0]
+                    finally:
+                        conn.close()
+
+                    if controls_count < 1:
+                        raise RuntimeError("snapshot has no controls")
+                    return MaterializeResult(
+                        metadata={
+                            "snapshot_path": str(snapshot_path),
+                            "controls_count": controls_count,
+                            "aggregates_count": aggregates_count,
+                        }
+                    )
+
+                result = materialize([exported_testing_snapshot])
+                self.assertTrue(result.success)
+            finally:
+                if snapshot_path.exists():
+                    snapshot_path.unlink()
+                snapshots_dir = snapshot_path.parent
+                try:
+                    snapshots_dir.rmdir()
+                except OSError:
+                    pass
+                for path in (db_path, Path(str(db_path) + "-wal"), Path(str(db_path) + "-shm")):
+                    if path.exists():
+                        path.unlink()
         finally:
             proc.terminate()
             try:

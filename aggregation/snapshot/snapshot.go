@@ -7,15 +7,20 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
 	_ "modernc.org/sqlite"
 )
 
-// Export writes a timestamped production snapshot under ../data/snapshots.
+// Export writes a timestamped production snapshot under the resolved runtime
+// snapshot root (SNAPSHOT_DIR or repository data/snapshots).
 func Export(ctx context.Context, db *sql.DB) (string, error) {
-	outputPath := defaultSnapshotPath()
+	outputPath, err := defaultSnapshotPath()
+	if err != nil {
+		return "", err
+	}
 	return exportToPath(ctx, db, outputPath)
 }
 
@@ -86,17 +91,85 @@ func exportToPath(ctx context.Context, db *sql.DB, outputPath string) (_ string,
 }
 
 // defaultSnapshotPath returns a timestamped runtime snapshot filename.
-func defaultSnapshotPath() string {
-	dir := filepath.Join("..", "data", "snapshots")
+func defaultSnapshotPath() (string, error) {
+	dir, err := snapshotRootDir()
+	if err != nil {
+		return "", err
+	}
 	name := fmt.Sprintf("snapshot-%s.sqlite", time.Now().UTC().Format("20060102-150405"))
-	return filepath.Join(dir, name)
+	return filepath.Join(dir, name), nil
 }
 
 // testSnapshotPath returns deterministic test snapshot path naming.
 func testSnapshotPath(testName string, snapshotName string) string {
+	if override := strings.TrimSpace(os.Getenv("TEST_DATA_DIR")); override != "" {
+		dir := filepath.Join(override, "snapshots")
+		name := fmt.Sprintf("%s-%s-snapshot.sqlite", testName, snapshotName)
+		return filepath.Join(dir, name)
+	}
+
 	dir := filepath.Join("..", "test-data", "snapshots")
+	if _, file, _, ok := runtime.Caller(0); ok {
+		dir = filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", "test-data", "snapshots"))
+	}
 	name := fmt.Sprintf("%s-%s-snapshot.sqlite", testName, snapshotName)
 	return filepath.Join(dir, name)
+}
+
+// snapshotRootDir resolves the production snapshot root using SNAPSHOT_DIR
+// override first, then falls back to a repository-root-relative absolute path.
+func snapshotRootDir() (string, error) {
+	if override := strings.TrimSpace(os.Getenv("SNAPSHOT_DIR")); override != "" {
+		return filepath.Abs(override)
+	}
+
+	execPath, err := os.Executable()
+	if err == nil {
+		if root, ok := findRepositoryRoot(filepath.Dir(execPath)); ok {
+			return filepath.Join(root, "data", "snapshots"), nil
+		}
+	}
+
+	// Source-relative fallback keeps tests stable when cwd/executable point at
+	// temporary directories.
+	if _, file, _, ok := runtime.Caller(0); ok {
+		if root, ok := findRepositoryRoot(filepath.Dir(file)); ok {
+			return filepath.Join(root, "data", "snapshots"), nil
+		}
+	}
+
+	wd, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("determine working directory for snapshot path: %w", err)
+	}
+	if root, ok := findRepositoryRoot(wd); ok {
+		return filepath.Join(root, "data", "snapshots"), nil
+	}
+	return "", fmt.Errorf("could not resolve snapshot root: set SNAPSHOT_DIR")
+}
+
+// findRepositoryRoot searches upward for the monorepo root marker.
+func findRepositoryRoot(start string) (string, bool) {
+	cur := filepath.Clean(start)
+	for {
+		if isRepositoryRoot(cur) {
+			return cur, true
+		}
+		parent := filepath.Dir(cur)
+		if parent == cur {
+			return "", false
+		}
+		cur = parent
+	}
+}
+
+func isRepositoryRoot(path string) bool {
+	info, err := os.Stat(filepath.Join(path, "aggregation"))
+	if err != nil || !info.IsDir() {
+		return false
+	}
+	info, err = os.Stat(filepath.Join(path, "analytics"))
+	return err == nil && info.IsDir()
 }
 
 // copySQLiteDB copies user tables and their rows (excluding sqlite internal tables).

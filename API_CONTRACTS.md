@@ -23,11 +23,18 @@ Endpoint:
 Required fields:
 - `controlId`
 - `controlType` (`discrete` or `slider`)
-- `numStates` (`2..10`)
+- `numStates`
 
 Behavior:
 - Upserts control metadata by `controlId`.
+- `controlType` determines how `numStates` is interpreted:
+  - `controlType == "discrete"`: `numStates` is required and must be `2..10`.
+  - `controlType == "slider"`: `numStates` is treated as a quantization count (recommended `6`) and must be `2..10` in the current API.
 - Invalid payloads are rejected with clear errors.
+
+Examples:
+- Discrete: `{ "controlId": "mode", "controlType": "discrete", "numStates": 3 }`
+- Slider: `{ "controlId": "setpoint", "controlType": "slider", "numStates": 6 }`
 
 ## Holding interval ingestion
 Endpoint:
@@ -78,7 +85,7 @@ For all testing control/ingestion/snapshot requests:
 For testing snapshot requests:
 - `snapshotName` is required.
 
-Slug constraint for both:
+Slug constraint for `testName` and `snapshotName`:
 - `^[a-z0-9]+(?:-[a-z0-9]+)*$`
 
 ## Non-configurable runtime paths

@@ -87,11 +87,17 @@ func TestSnapshotExportCreatesConsistentCopy(t *testing.T) {
 // TestDefaultSnapshotPathUsesDataSnapshotsDir verifies default snapshot naming
 // and placement follow the required ../data/snapshots convention.
 func TestDefaultSnapshotPathUsesDataSnapshotsDir(t *testing.T) {
-	path := defaultSnapshotPath()
+	path, err := defaultSnapshotPath()
+	if err != nil {
+		t.Fatalf("defaultSnapshotPath: %v", err)
+	}
 
-	expectedDir := filepath.Join("..", "data", "snapshots")
-	if filepath.Dir(path) != expectedDir {
-		t.Fatalf("default dir mismatch: got %s want %s", filepath.Dir(path), expectedDir)
+	gotDir := filepath.Dir(path)
+	if !filepath.IsAbs(gotDir) {
+		t.Fatalf("snapshot dir must be absolute, got %s", gotDir)
+	}
+	if !strings.HasSuffix(gotDir, filepath.Join("data", "snapshots")) {
+		t.Fatalf("default dir mismatch: got %s", gotDir)
 	}
 
 	name := filepath.Base(path)

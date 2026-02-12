@@ -4,11 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 
 	"home-automation-analytics/aggregation/ingest"
 	"home-automation-analytics/aggregation/snapshot"
@@ -112,10 +114,15 @@ func (s *TestingServer) handleControls(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid controlType")
 		return
 	}
+	if len(req.StateLabels) > 0 && len(req.StateLabels) != req.NumStates {
+		writeError(w, http.StatusBadRequest, "stateLabels length must equal numStates")
+		return
+	}
 
 	db, err := openTestingDB(r.Context(), req.TestName)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		log.Printf("testing controls open db failed for %q: %v", req.TestName, err)
+		writeError(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
 	defer db.Close()
@@ -165,7 +172,12 @@ func (s *TestingServer) handleHolding(w http.ResponseWriter, r *http.Request) {
 		EndTimeMs:   req.EndTimeMs,
 	}
 	if err := ingest.IngestHolding(r.Context(), db, s.cfg, input); err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		if ingest.IsValidationError(err) {
+			writeError(w, http.StatusBadRequest, "invalid input")
+			return
+		}
+		log.Printf("testing handleHolding ingest failed for %q: %v", req.TestName, err)
+		writeError(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
 	writeJSON(w, http.StatusAccepted, map[string]string{"status": "accepted"})
@@ -201,7 +213,12 @@ func (s *TestingServer) handleTransitions(w http.ResponseWriter, r *http.Request
 		TimestampMs: req.TimestampMs,
 	}
 	if err := ingest.IngestTransition(r.Context(), db, s.cfg, input); err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		if ingest.IsValidationError(err) {
+			writeError(w, http.StatusBadRequest, "invalid input")
+			return
+		}
+		log.Printf("testing handleTransitions ingest failed for %q: %v", req.TestName, err)
+		writeError(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
 	writeJSON(w, http.StatusAccepted, map[string]string{"status": "accepted"})
@@ -281,7 +298,11 @@ func (s *TestingServer) handleReset(w http.ResponseWriter, r *http.Request) {
 
 // openTestingDB opens/creates a test-scoped SQLite DB and initializes schema.
 func openTestingDB(ctx context.Context, testName string) (*sql.DB, error) {
-	if err := os.MkdirAll(filepath.Join("..", "test-data"), 0o755); err != nil {
+	root, err := testDataRootDir()
+	if err != nil {
+		return nil, err
+	}
+	if err := os.MkdirAll(root, 0o755); err != nil {
 		return nil, err
 	}
 	dbPath := testingDBPath(testName)
@@ -298,7 +319,62 @@ func openTestingDB(ctx context.Context, testName string) (*sql.DB, error) {
 
 // testingDBPath is the canonical per-test DB filename contract.
 func testingDBPath(testName string) string {
-	return filepath.Join("..", "test-data", testName+"-test-data.sqlite")
+	root, err := testDataRootDir()
+	if err != nil {
+		// Fallback keeps callsites resilient; openTestingDB still returns explicit
+		// errors from testDataRootDir before using this fallback path.
+		return filepath.Join("test-data", testName+"-test-data.sqlite")
+	}
+	return filepath.Join(root, testName+"-test-data.sqlite")
+}
+
+func testDataRootDir() (string, error) {
+	if override := os.Getenv("TEST_DATA_DIR"); override != "" {
+		return filepath.Abs(override)
+	}
+
+	execPath, err := os.Executable()
+	if err == nil {
+		if root, ok := findRepositoryRoot(filepath.Dir(execPath)); ok {
+			return filepath.Join(root, "test-data"), nil
+		}
+	}
+	if _, file, _, ok := runtime.Caller(0); ok {
+		if root, ok := findRepositoryRoot(filepath.Dir(file)); ok {
+			return filepath.Join(root, "test-data"), nil
+		}
+	}
+	wd, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("determine working directory for test data path: %w", err)
+	}
+	if root, ok := findRepositoryRoot(wd); ok {
+		return filepath.Join(root, "test-data"), nil
+	}
+	return "", fmt.Errorf("could not resolve test-data root")
+}
+
+func findRepositoryRoot(start string) (string, bool) {
+	cur := filepath.Clean(start)
+	for {
+		if isRepositoryRoot(cur) {
+			return cur, true
+		}
+		parent := filepath.Dir(cur)
+		if parent == cur {
+			return "", false
+		}
+		cur = parent
+	}
+}
+
+func isRepositoryRoot(path string) bool {
+	info, err := os.Stat(filepath.Join(path, "aggregation"))
+	if err != nil || !info.IsDir() {
+		return false
+	}
+	info, err = os.Stat(filepath.Join(path, "analytics"))
+	return err == nil && info.IsDir()
 }
 
 // isValidSlug enforces the lowercase-hyphen slug format used in test paths.

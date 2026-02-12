@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -39,7 +40,7 @@ func TestControlsEndpoint(t *testing.T) {
 	defer db.Close()
 
 	srv := NewServer(db, ingest.Config{TimeZone: "UTC"})
-	body := bytes.NewReader([]byte(`{"controlId":"c1","controlType":"discrete","numStates":2}`))
+	body := bytes.NewReader([]byte(`{"controlId":"c1","controlType":"discrete","numStates":2,"stateLabels":["off","on"]}`))
 
 	req := httptest.NewRequest(http.MethodPost, "/v1/controls", body)
 	w := httptest.NewRecorder()
@@ -53,6 +54,31 @@ func TestControlsEndpoint(t *testing.T) {
 		t.Fatalf("get control: %v", err)
 	}
 	if control.ControlType != storage.ControlTypeDiscrete || control.NumStates != 2 {
+		t.Fatalf("control mismatch: %+v", control)
+	}
+}
+
+// TestControlsEndpointAcceptsOmittedStateLabels verifies that stateLabels is
+// optional; requests omitting stateLabels entirely are accepted per API contract.
+func TestControlsEndpointAcceptsOmittedStateLabels(t *testing.T) {
+	db := openTestDB(t)
+	defer db.Close()
+
+	srv := NewServer(db, ingest.Config{TimeZone: "UTC"})
+	body := bytes.NewReader([]byte(`{"controlId":"c2","controlType":"discrete","numStates":3}`))
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/controls", body)
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+
+	if w.Code != http.StatusAccepted {
+		t.Fatalf("expected 202, got %d body=%s", w.Code, w.Body.String())
+	}
+	control, err := storage.GetControl(context.Background(), db, "c2")
+	if err != nil {
+		t.Fatalf("get control: %v", err)
+	}
+	if control.NumStates != 3 || len(control.StateLabels) != 0 {
 		t.Fatalf("control mismatch: %+v", control)
 	}
 }
@@ -155,18 +181,16 @@ func TestSnapshotEndpoint(t *testing.T) {
 	if snapshotPath == "" {
 		t.Fatalf("missing snapshotPath in response: %s", w.Body.String())
 	}
-	wantDir := filepath.Clean(filepath.Join(outputDir, "..", "data", "snapshots"))
 	gotDir := filepath.Dir(snapshotPath)
 	gotDirEval, err := filepath.EvalSymlinks(gotDir)
 	if err == nil {
 		gotDir = gotDirEval
 	}
-	wantDirEval, err := filepath.EvalSymlinks(wantDir)
-	if err == nil {
-		wantDir = wantDirEval
+	if !filepath.IsAbs(gotDir) {
+		t.Fatalf("snapshot dir must be absolute, got %s", gotDir)
 	}
-	if gotDir != wantDir {
-		t.Fatalf("snapshot dir mismatch: got %s want %s", gotDir, wantDir)
+	if !strings.HasSuffix(gotDir, filepath.Join("data", "snapshots")) {
+		t.Fatalf("snapshot dir mismatch: got %s", gotDir)
 	}
 	if _, err := os.Stat(snapshotPath); err != nil {
 		t.Fatalf("snapshot file missing: %v", err)
