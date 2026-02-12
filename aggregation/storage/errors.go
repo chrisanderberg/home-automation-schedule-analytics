@@ -4,5 +4,4 @@ import "errors"
 
 var (
 	ErrNotFound = errors.New("not found")
-	ErrTODO     = errors.New("TODO")
 )

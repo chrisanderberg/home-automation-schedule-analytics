@@ -13,6 +13,8 @@ import (
 	"home-automation-analytics/aggregation/storage"
 )
 
+// TestSnapshotExportCreatesConsistentCopy verifies snapshot export creates a
+// file in the runtime snapshots directory and preserves persisted row counts.
 func TestSnapshotExportCreatesConsistentCopy(t *testing.T) {
 	ctx := context.Background()
 	db, err := sql.Open("sqlite", ":memory:")
@@ -82,6 +84,8 @@ func TestSnapshotExportCreatesConsistentCopy(t *testing.T) {
 	}
 }
 
+// TestDefaultSnapshotPathUsesDataSnapshotsDir verifies default snapshot naming
+// and placement follow the required data/snapshots convention.
 func TestDefaultSnapshotPathUsesDataSnapshotsDir(t *testing.T) {
 	path := defaultSnapshotPath()
 
@@ -99,6 +103,8 @@ func TestDefaultSnapshotPathUsesDataSnapshotsDir(t *testing.T) {
 	}
 }
 
+// TestExportForTestUsesDeterministicTestPath verifies test snapshot export
+// uses the required deterministic test-data naming convention.
 func TestExportForTestUsesDeterministicTestPath(t *testing.T) {
 	ctx := context.Background()
 	db, err := sql.Open("sqlite", ":memory:")

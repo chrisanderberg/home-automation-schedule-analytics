@@ -17,6 +17,8 @@ import (
 	"home-automation-analytics/aggregation/storage"
 )
 
+// TestHealth verifies the health endpoint is wired and returns HTTP 200 when
+// the server has a valid initialized storage dependency.
 func TestHealth(t *testing.T) {
 	db := openTestDB(t)
 	defer db.Close()
@@ -31,6 +33,8 @@ func TestHealth(t *testing.T) {
 	}
 }
 
+// TestHoldingEndpoint verifies valid holding payloads are accepted by the main
+// API and routed through shared ingestion logic.
 func TestHoldingEndpoint(t *testing.T) {
 	db := openTestDB(t)
 	defer db.Close()
@@ -60,6 +64,8 @@ func TestHoldingEndpoint(t *testing.T) {
 	}
 }
 
+// TestTransitionEndpoint verifies valid transition payloads are accepted by the
+// main API and routed through shared ingestion logic.
 func TestTransitionEndpoint(t *testing.T) {
 	db := openTestDB(t)
 	defer db.Close()
@@ -89,6 +95,8 @@ func TestTransitionEndpoint(t *testing.T) {
 	}
 }
 
+// TestSnapshotEndpoint verifies snapshot export succeeds from the main API and
+// returns a created snapshot path under data/snapshots.
 func TestSnapshotEndpoint(t *testing.T) {
 	db := openTestDB(t)
 	defer db.Close()
@@ -132,6 +140,8 @@ func TestSnapshotEndpoint(t *testing.T) {
 	}
 }
 
+// TestSnapshotEndpointRejectsOutputPathOverride verifies main API clients
+// cannot override runtime snapshot output paths via request payload fields.
 func TestSnapshotEndpointRejectsOutputPathOverride(t *testing.T) {
 	db := openTestDB(t)
 	defer db.Close()
@@ -148,6 +158,8 @@ func TestSnapshotEndpointRejectsOutputPathOverride(t *testing.T) {
 	}
 }
 
+// TestMainAPIHasNoResetEndpoint verifies reset remains testing-only by
+// asserting the main API exposes no /v1/reset route.
 func TestMainAPIHasNoResetEndpoint(t *testing.T) {
 	db := openTestDB(t)
 	defer db.Close()

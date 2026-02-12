@@ -22,6 +22,8 @@ func openTestDB(t *testing.T) *sql.DB {
 	return db
 }
 
+// TestControlCRUD verifies control metadata can be written and read back
+// without mutation through the storage layer.
 func TestControlCRUD(t *testing.T) {
 	db := openTestDB(t)
 	defer db.Close()
@@ -40,6 +42,8 @@ func TestControlCRUD(t *testing.T) {
 	}
 }
 
+// TestAggregateCreateUpdate verifies aggregate rows are lazily created with
+// canonical blob size and that updates persist modified blob values.
 func TestAggregateCreateUpdate(t *testing.T) {
 	db := openTestDB(t)
 	defer db.Close()
@@ -86,6 +90,8 @@ func TestAggregateCreateUpdate(t *testing.T) {
 	}
 }
 
+// TestAggregateConcurrentUpdates exercises concurrent aggregate updates and
+// verifies serialized update behavior prevents lost writes.
 func TestAggregateConcurrentUpdates(t *testing.T) {
 	db := openTestDB(t)
 	defer db.Close()

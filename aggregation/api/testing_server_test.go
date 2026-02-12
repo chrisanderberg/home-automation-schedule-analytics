@@ -16,6 +16,8 @@ import (
 	"home-automation-analytics/aggregation/storage"
 )
 
+// TestTestingHoldingRejectsInvalidTestName verifies testing API slug validation
+// rejects non-lowercase-hyphen test names before ingest logic runs.
 func TestTestingHoldingRejectsInvalidTestName(t *testing.T) {
 	srv := NewTestingServer(ingest.Config{TimeZone: "UTC"})
 
@@ -38,6 +40,8 @@ func TestTestingHoldingRejectsInvalidTestName(t *testing.T) {
 	}
 }
 
+// TestTestingHoldingWritesToTestSpecificDB verifies testing ingestion writes to
+// the per-test database path and appends aggregate data in that isolated DB.
 func TestTestingHoldingWritesToTestSpecificDB(t *testing.T) {
 	srv := NewTestingServer(ingest.Config{TimeZone: "UTC"})
 
@@ -92,6 +96,8 @@ func TestTestingHoldingWritesToTestSpecificDB(t *testing.T) {
 	}
 }
 
+// TestTestingSnapshotUsesRequestedNames verifies testing snapshot export uses
+// requested test and snapshot slugs in the required output filename.
 func TestTestingSnapshotUsesRequestedNames(t *testing.T) {
 	srv := NewTestingServer(ingest.Config{TimeZone: "UTC"})
 
@@ -132,6 +138,8 @@ func TestTestingSnapshotUsesRequestedNames(t *testing.T) {
 	}
 }
 
+// TestTestingResetRemovesOnlyRequestedTestDB verifies testing reset deletes only
+// the requested test database and leaves other test datasets intact.
 func TestTestingResetRemovesOnlyRequestedTestDB(t *testing.T) {
 	srv := NewTestingServer(ingest.Config{TimeZone: "UTC"})
 

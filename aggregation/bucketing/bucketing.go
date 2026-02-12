@@ -7,11 +7,13 @@ type BucketSpan struct {
 	Millis int64
 }
 
+// BucketAtUTC maps a UTC timestamp to Monday-based 5-minute week bucket index.
 func BucketAtUTC(timestampMs int64) (int, error) {
 	t := time.UnixMilli(timestampMs).UTC()
 	return bucketFromTime(t), nil
 }
 
+// BucketAtLocal maps a timestamp into buckets using the configured local zone.
 func BucketAtLocal(timestampMs int64, loc *time.Location) (int, error) {
 	if loc == nil {
 		return 0, ErrInvalidTimestamp
@@ -20,6 +22,8 @@ func BucketAtLocal(timestampMs int64, loc *time.Location) (int, error) {
 	return bucketFromTime(t), nil
 }
 
+// SplitIntervalUTC splits a half-open UTC interval into per-bucket elapsed
+// milliseconds preserving total real duration.
 func SplitIntervalUTC(startMs, endMs int64) ([]BucketSpan, error) {
 	if endMs <= startMs {
 		return nil, ErrInvalidInterval
@@ -45,6 +49,8 @@ func SplitIntervalUTC(startMs, endMs int64) ([]BucketSpan, error) {
 	return spans, nil
 }
 
+// SplitIntervalLocal splits a half-open interval in local-time bucket
+// coordinates while still measuring elapsed real milliseconds.
 func SplitIntervalLocal(startMs, endMs int64, loc *time.Location) ([]BucketSpan, error) {
 	if loc == nil {
 		return nil, ErrInvalidTimestamp
@@ -73,6 +79,7 @@ func SplitIntervalLocal(startMs, endMs int64, loc *time.Location) ([]BucketSpan,
 	return spans, nil
 }
 
+// nextBoundaryUTC returns the next 5-minute UTC wall-clock boundary after ts.
 func nextBoundaryUTC(timestampMs int64) int64 {
 	t := time.UnixMilli(timestampMs).UTC()
 	minute := (t.Minute()/5 + 1) * 5
@@ -88,6 +95,8 @@ func nextBoundaryUTC(timestampMs int64) int64 {
 	return boundary.UnixMilli()
 }
 
+// nextBoundaryLocal returns the next local 5-minute boundary and applies a
+// forward fallback when DST transitions make wall-clock construction ambiguous.
 func nextBoundaryLocal(timestampMs int64, loc *time.Location) int64 {
 	t := time.UnixMilli(timestampMs).In(loc)
 	minute := (t.Minute()/5 + 1) * 5
@@ -107,6 +116,7 @@ func nextBoundaryLocal(timestampMs int64, loc *time.Location) int64 {
 	return boundaryMs
 }
 
+// bucketFromTime converts a wall-clock time to Monday=0 weekly bucket index.
 func bucketFromTime(t time.Time) int {
 	dayIndex := (int(t.Weekday()) + 6) % 7
 	bucketWithinDay := t.Hour()*12 + (t.Minute() / 5)

@@ -17,6 +17,7 @@ type Server struct {
 	mux *http.ServeMux
 }
 
+// NewServer wires the main API surface on the shared ingestion/storage stack.
 func NewServer(db *sql.DB, cfg ingest.Config) *Server {
 	s := &Server{db: db, cfg: cfg, mux: http.NewServeMux()}
 	s.routes()
@@ -27,6 +28,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mux.ServeHTTP(w, r)
 }
 
+// routes registers all main API endpoints.
 func (s *Server) routes() {
 	s.mux.HandleFunc("/v1/health", s.handleHealth)
 	s.mux.HandleFunc("/v1/holding-intervals", s.handleHolding)
@@ -42,13 +44,14 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
+// handleHolding decodes a main API holding request and forwards to ingestion.
 func (s *Server) handleHolding(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 	var input ingest.HoldingInput
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+	if err := decodeStrictJSON(r.Body, &input); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
@@ -60,13 +63,14 @@ func (s *Server) handleHolding(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusAccepted, map[string]string{"status": "accepted"})
 }
 
+// handleTransitions decodes a main API transition request and forwards to ingestion.
 func (s *Server) handleTransitions(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 	var input ingest.TransitionInput
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+	if err := decodeStrictJSON(r.Body, &input); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
@@ -78,6 +82,7 @@ func (s *Server) handleTransitions(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusAccepted, map[string]string{"status": "accepted"})
 }
 
+// handleSnapshots exports a snapshot from the fixed runtime location contract.
 func (s *Server) handleSnapshots(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -100,6 +105,7 @@ func (s *Server) handleSnapshots(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"snapshotPath": path})
 }
 
+// writeJSON is the shared response encoder for success and error payloads.
 func writeJSON(w http.ResponseWriter, status int, body any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -110,6 +116,7 @@ func writeError(w http.ResponseWriter, status int, message string) {
 	writeJSON(w, status, map[string]string{"error": message})
 }
 
+// WithContext injects a fixed context into a handler; primarily used by tests.
 func WithContext(ctx context.Context, h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h.ServeHTTP(w, r.WithContext(ctx))

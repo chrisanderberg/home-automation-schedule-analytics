@@ -8,6 +8,8 @@ type QuarterSpan struct {
 	EndMs        int64
 }
 
+// SplitIntervalUTC splits a half-open interval at UTC quarter boundaries so
+// downstream aggregation can write each span into its quarter-specific blob.
 func SplitIntervalUTC(startMs, endMs int64) ([]QuarterSpan, error) {
 	if endMs <= startMs {
 		return nil, ErrInvalidInterval
@@ -32,6 +34,8 @@ func SplitIntervalUTC(startMs, endMs int64) ([]QuarterSpan, error) {
 	return spans, nil
 }
 
+// QuarterIndexUTC returns the integer quarter key defined by requirements:
+// (utcYear-1970)*4 + (quarterNumber-1).
 func QuarterIndexUTC(timestampMs int64) int {
 	t := time.UnixMilli(timestampMs).UTC()
 	return quarterIndexUTC(t)
@@ -43,6 +47,8 @@ func quarterIndexUTC(t time.Time) int {
 	return (t.Year()-1970)*4 + (quarterNumber - 1)
 }
 
+// nextQuarterStartUTC computes the start instant of the quarter immediately
+// after t in UTC calendar time.
 func nextQuarterStartUTC(t time.Time) time.Time {
 	month := int(t.Month())
 	quarter := (month-1)/3 + 1

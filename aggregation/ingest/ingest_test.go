@@ -11,6 +11,9 @@ import (
 	"home-automation-analytics/aggregation/storage"
 )
 
+// TestHoldingIngestSingleBucketUTC verifies holding ingestion writes elapsed
+// milliseconds to both UTC and Local clocks for one bucket and does not affect
+// unrelated states or neighboring buckets.
 func TestHoldingIngestSingleBucketUTC(t *testing.T) {
 	ctx := context.Background()
 	db, err := storage.Open(":memory:")

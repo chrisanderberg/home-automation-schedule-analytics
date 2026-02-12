@@ -6,17 +6,21 @@ import (
 )
 
 func BucketAtMeanSolar(timestampMs int64, latitude, longitude float64) (int, error) {
+	// Mean solar time is a longitude-only offset from UTC.
 	offsetMinutes := longitude * 4
 	adj := time.UnixMilli(timestampMs).UTC().Add(time.Duration(offsetMinutes) * time.Minute)
 	return bucketFromTime(adj), nil
 }
 
 func BucketAtApparentSolar(timestampMs int64, latitude, longitude float64) (int, error) {
+	// Apparent solar adds the equation-of-time seasonal correction.
 	offsetMinutes := longitude*4 + equationOfTimeMinutes(time.UnixMilli(timestampMs).UTC())
 	adj := time.UnixMilli(timestampMs).UTC().Add(time.Duration(offsetMinutes) * time.Minute)
 	return bucketFromTime(adj), nil
 }
 
+// BucketAtUnequalHours maps solar minutes into 12 equal daylight and 12 equal
+// night hours, yielding a synthetic 24-hour day used for experimental bucketing.
 func BucketAtUnequalHours(timestampMs int64, latitude, longitude float64) (int, error) {
 	if latitude > 90 || latitude < -90 || longitude > 180 || longitude < -180 {
 		return 0, ErrInvalidTimestamp
@@ -68,18 +72,23 @@ func BucketAtUnequalHours(timestampMs int64, latitude, longitude float64) (int, 
 	return dayIndex*288 + bucketWithinDay, nil
 }
 
+// SplitIntervalMeanSolar splits with a fixed longitude-derived offset.
 func SplitIntervalMeanSolar(startMs, endMs int64, latitude, longitude float64) ([]BucketSpan, error) {
 	return splitIntervalWithOffset(startMs, endMs, func(ts int64) float64 {
 		return longitude * 4
 	})
 }
 
+// SplitIntervalApparentSolar splits with longitude plus equation-of-time
+// offset sampled at each boundary step.
 func SplitIntervalApparentSolar(startMs, endMs int64, latitude, longitude float64) ([]BucketSpan, error) {
 	return splitIntervalWithOffset(startMs, endMs, func(ts int64) float64 {
 		return longitude*4 + equationOfTimeMinutes(time.UnixMilli(ts).UTC())
 	})
 }
 
+// SplitIntervalUnequalHours splits an interval in unequal-hour bucket space and
+// returns ErrUndefinedClock when sunrise/sunset are undefined for that date.
 func SplitIntervalUnequalHours(startMs, endMs int64, latitude, longitude float64) ([]BucketSpan, error) {
 	if endMs <= startMs {
 		return nil, ErrInvalidInterval
@@ -143,6 +152,8 @@ func nextUnequalBoundary(timestampMs int64, latitude, longitude float64) (int64,
 	return boundary.UnixMilli(), nil
 }
 
+// splitIntervalWithOffset handles clocks expressible as UTC plus a minute
+// offset function and then maps boundaries back to UTC elapsed time.
 func splitIntervalWithOffset(startMs, endMs int64, offsetMinutes func(int64) float64) ([]BucketSpan, error) {
 	if endMs <= startMs {
 		return nil, ErrInvalidInterval
@@ -186,6 +197,8 @@ func fractionalYear(day time.Time) float64 {
 	return 2 * math.Pi / 365 * (float64(yday-1) + (float64(day.Hour())-12)/24)
 }
 
+// sunriseSunsetSolarMinutes estimates sunrise/sunset in local solar minutes
+// from midnight and reports ErrUndefinedClock at polar day/night extremes.
 func sunriseSunsetSolarMinutes(day time.Time, latitude float64) (float64, float64, error) {
 	decl := solarDeclination(day)
 	latRad := latitude * math.Pi / 180

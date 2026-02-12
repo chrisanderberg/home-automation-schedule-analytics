@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+// TestSolarBucketsDefined verifies all three solar clocks return valid bucket
+// indices when the solar mapping is defined for a normal location/date.
 func TestSolarBucketsDefined(t *testing.T) {
 	// San Francisco, 2020-06-01T12:00:00Z
 	lat := 37.7749
@@ -33,6 +35,9 @@ func TestSolarBucketsDefined(t *testing.T) {
 	}
 }
 
+// TestUnequalHoursUndefinedOnly verifies unequal-hours bucketing reports an
+// undefined-clock error when sunrise/sunset do not exist while other solar
+// clocks remain computable for the same timestamp and location.
 func TestUnequalHoursUndefinedOnly(t *testing.T) {
 	// High latitude in winter to trigger no sunrise/sunset for unequal hours.
 	lat := 78.2232  // Longyearbyen

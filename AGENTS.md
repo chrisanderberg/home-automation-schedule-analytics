@@ -23,6 +23,13 @@ Each milestone must be implemented in two steps:
 - Fill in TODOs until tests pass.
 - Ensure `go test ./...` passes before completing the milestone.
 
+### Milestone Definition of Done (DoD)
+Before marking a milestone complete:
+- `go test ./...` passes.
+- No placeholder TODO sentinels remain in production code unless explicitly approved by user.
+- Non-obvious logic has reviewer-oriented comments explaining intent/invariants.
+- Code structure is reviewable (large functions split into focused helpers when practical).
+
 ### Assumptions and TBD handling
 - If something is not specified, do not guess silently.
 - Prefer parameterization when possible.
@@ -35,6 +42,8 @@ For any milestone implementation, include:
 - tests added/changed
 - commands to run to verify
 - assumptions made (if any)
+- readability improvements made (if any)
+- invariants documented or clarified (if any)
 
 ---
 
@@ -291,6 +300,16 @@ have been active historically. The hypothesis is:
 - Rates for i != j are proportional to user transitions i->j divided by holding
   time in state i.
 - The stationary distribution of the CTMC is treated as the preference estimate.
+
+### Code readability and reviewer UX
+- Public functions and non-trivial internal helpers must include concise doc comments.
+- Comments should explain intent and invariants ("why"), not restate obvious syntax.
+- Non-obvious code paths (time boundary math, index math, transaction semantics,
+  SQL generation, API contract validation) require short inline rationale comments.
+- Avoid magic numbers when domain constants exist; use named constants for clock
+  indices, bucket dimensions, status codes, and other domain identifiers.
+- Prefer small focused helpers when one function mixes multiple concerns
+  (validation, transformation/splitting, persistence, response shaping).
 
 ---
 

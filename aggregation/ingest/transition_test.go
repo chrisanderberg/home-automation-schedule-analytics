@@ -11,6 +11,9 @@ import (
 	"home-automation-analytics/aggregation/storage"
 )
 
+// TestTransitionIngestSingleBucketUTC verifies transition ingestion increments
+// the correct directed edge in both UTC and Local clocks and leaves other
+// transition cells unchanged.
 func TestTransitionIngestSingleBucketUTC(t *testing.T) {
 	ctx := context.Background()
 	db, err := storage.Open(":memory:")

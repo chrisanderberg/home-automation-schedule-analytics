@@ -4,6 +4,8 @@ import (
 	"testing"
 )
 
+// TestBlobValueCountFormula verifies canonical blob sizing for all valid
+// state counts and ensures byte storage remains fixed at u64 per value.
 func TestBlobValueCountFormula(t *testing.T) {
 	for n := MinStates; n <= MaxStates; n++ {
 		b, err := NewBlob(n)
@@ -20,6 +22,8 @@ func TestBlobValueCountFormula(t *testing.T) {
 	}
 }
 
+// TestHoldingRegionBounds exercises hold-index addressing across every clock
+// and bucket and guards that all holding indices stay in the holding region.
 func TestHoldingRegionBounds(t *testing.T) {
 	n := 4
 	for s := 0; s < n; s++ {
@@ -37,6 +41,8 @@ func TestHoldingRegionBounds(t *testing.T) {
 	}
 }
 
+// TestTransitionRegionBounds verifies transition-index addressing for all
+// non-diagonal state pairs and ensures indices map only into transition space.
 func TestTransitionRegionBounds(t *testing.T) {
 	n := 4
 	for from := 0; from < n; from++ {
@@ -59,6 +65,8 @@ func TestTransitionRegionBounds(t *testing.T) {
 	}
 }
 
+// TestTransitionGroupsCoverAllPairs verifies each directed non-self state
+// pair maps to a unique transition group and no groups are skipped.
 func TestTransitionGroupsCoverAllPairs(t *testing.T) {
 	n := 5
 	seen := make(map[int]struct{})

@@ -22,11 +22,13 @@ func Open(dbPath string) (*sql.DB, error) {
 	return db, nil
 }
 
+// InitSchema ensures required tables exist before ingestion/query operations.
 func InitSchema(ctx context.Context, db *sql.DB) error {
 	_, err := db.ExecContext(ctx, Schema)
 	return err
 }
 
+// UpsertControl inserts or replaces control metadata by control_id.
 func UpsertControl(ctx context.Context, db *sql.DB, control Control) error {
 	labels, err := encodeLabels(control.StateLabels)
 	if err != nil {
@@ -48,6 +50,7 @@ func UpsertControl(ctx context.Context, db *sql.DB, control Control) error {
 	return err
 }
 
+// GetControl loads control metadata and returns ErrNotFound when missing.
 func GetControl(ctx context.Context, db *sql.DB, controlID string) (Control, error) {
 	row := db.QueryRowContext(ctx, `SELECT control_id, control_type, num_states, state_labels FROM controls WHERE control_id = ?`, controlID)
 	var control Control
@@ -70,6 +73,8 @@ func GetControl(ctx context.Context, db *sql.DB, controlID string) (Control, err
 	return control, nil
 }
 
+// GetOrCreateAggregate fetches an existing blob or materializes a zeroed blob
+// for the requested key and state cardinality.
 func GetOrCreateAggregate(ctx context.Context, db *sql.DB, key AggregateKey, numStates int) ([]byte, error) {
 	row := db.QueryRowContext(
 		ctx,
@@ -107,6 +112,8 @@ func GetOrCreateAggregate(ctx context.Context, db *sql.DB, key AggregateKey, num
 	}
 }
 
+// UpdateAggregate performs a read-modify-write under BEGIN IMMEDIATE to avoid
+// lost updates when multiple writers target the same aggregate row.
 func UpdateAggregate(ctx context.Context, db *sql.DB, key AggregateKey, numStates int, update func([]byte) error) error {
 	conn, err := db.Conn(ctx)
 	if err != nil {
@@ -145,6 +152,7 @@ func UpdateAggregate(ctx context.Context, db *sql.DB, key AggregateKey, numState
 		return err
 	}
 
+	// Work on a copy so failed updates cannot partially mutate persisted bytes.
 	working := make([]byte, len(blobBytes))
 	copy(working, blobBytes)
 	if err := update(working); err != nil {
@@ -172,6 +180,7 @@ func UpdateAggregate(ctx context.Context, db *sql.DB, key AggregateKey, numState
 	return nil
 }
 
+// encodeLabels stores optional state labels as JSON text.
 func encodeLabels(labels []string) (string, error) {
 	if len(labels) == 0 {
 		return "", nil
@@ -183,6 +192,7 @@ func encodeLabels(labels []string) (string, error) {
 	return string(data), nil
 }
 
+// decodeLabels restores JSON-encoded optional state labels from storage.
 func decodeLabels(raw string) ([]string, error) {
 	if raw == "" {
 		return nil, nil

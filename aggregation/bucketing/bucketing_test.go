@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+// TestBucketAtUTCGoldens verifies fixed UTC timestamp-to-bucket mappings for
+// representative week positions and protects day-index/bucket math invariants.
 func TestBucketAtUTCGoldens(t *testing.T) {
 	cases := []struct {
 		name string
@@ -46,6 +48,8 @@ func TestBucketAtUTCGoldens(t *testing.T) {
 	}
 }
 
+// TestSplitIntervalUTCBoundary verifies a 10-minute UTC interval splits into
+// two adjacent 5-minute buckets with exact millisecond allocation.
 func TestSplitIntervalUTCBoundary(t *testing.T) {
 	start := time.Date(2020, 1, 6, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2020, 1, 6, 0, 10, 0, 0, time.UTC)
@@ -65,6 +69,8 @@ func TestSplitIntervalUTCBoundary(t *testing.T) {
 	}
 }
 
+// TestSplitIntervalLocalDSTInvariants exercises local-time splitting across a
+// DST jump and ensures total split duration equals real elapsed time.
 func TestSplitIntervalLocalDSTInvariants(t *testing.T) {
 	loc, err := time.LoadLocation("America/Los_Angeles")
 	if err != nil {

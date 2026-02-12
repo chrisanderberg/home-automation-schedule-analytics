@@ -22,6 +22,7 @@ type TestingServer struct {
 	mux *http.ServeMux
 }
 
+// NewTestingServer wires the isolated testing API that uses per-test DB files.
 func NewTestingServer(cfg ingest.Config) *TestingServer {
 	s := &TestingServer{cfg: cfg, mux: http.NewServeMux()}
 	s.routes()
@@ -32,6 +33,7 @@ func (s *TestingServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mux.ServeHTTP(w, r)
 }
 
+// routes registers the testing API endpoints, including /v1/reset.
 func (s *TestingServer) routes() {
 	s.mux.HandleFunc("/v1/health", s.handleHealth)
 	s.mux.HandleFunc("/v1/holding-intervals", s.handleHolding)
@@ -85,6 +87,7 @@ func (s *TestingServer) handleHolding(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
+	// Testing requests must include a valid test slug to select isolated data.
 	if !isValidSlug(req.TestName) {
 		writeError(w, http.StatusBadRequest, "invalid testName")
 		return
@@ -196,6 +199,7 @@ func (s *TestingServer) handleReset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Reset removes only files for the requested test dataset.
 	dbPath := testingDBPath(req.TestName)
 	_ = os.Remove(dbPath)
 	_ = os.Remove(dbPath + "-wal")
@@ -204,6 +208,7 @@ func (s *TestingServer) handleReset(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
+// openTestingDB opens/creates a test-scoped SQLite DB and initializes schema.
 func openTestingDB(ctx context.Context, testName string) (*sql.DB, error) {
 	if err := os.MkdirAll("test-data", 0o755); err != nil {
 		return nil, err
@@ -220,14 +225,17 @@ func openTestingDB(ctx context.Context, testName string) (*sql.DB, error) {
 	return db, nil
 }
 
+// testingDBPath is the canonical per-test DB filename contract.
 func testingDBPath(testName string) string {
 	return filepath.Join("test-data", testName+"-test-data.sqlite")
 }
 
+// isValidSlug enforces the lowercase-hyphen slug format used in test paths.
 func isValidSlug(value string) bool {
 	return slugRe.MatchString(value)
 }
 
+// decodeStrictJSON rejects unknown fields and trailing JSON tokens.
 func decodeStrictJSON(r io.Reader, out any) error {
 	dec := json.NewDecoder(r)
 	dec.DisallowUnknownFields()

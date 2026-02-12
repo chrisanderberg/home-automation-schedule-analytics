@@ -1,5 +1,6 @@
 package storage
 
+// Schema defines canonical SQLite tables for controls and dense aggregates.
 const Schema = `
 CREATE TABLE IF NOT EXISTS controls (
   control_id TEXT PRIMARY KEY,
