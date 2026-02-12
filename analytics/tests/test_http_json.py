@@ -8,6 +8,20 @@ from analytics.http_json import decode_json_body
 class DecodeJSONBodyTests(unittest.TestCase):
     """Validate JSON decode fallback behavior for API response bodies."""
 
+    def test_parses_valid_json_object_for_both_decode_modes(self):
+        """Valid JSON object bodies should decode regardless of fallback mode."""
+        body = '{"key":"value"}'
+        expected = {"key": "value"}
+
+        for decode_error_as_error_payload in (False, True):
+            self.assertEqual(
+                decode_json_body(
+                    body,
+                    decode_error_as_error_payload=decode_error_as_error_payload,
+                ),
+                expected,
+            )
+
     def test_returns_empty_dict_for_empty_body(self):
         """Empty responses should decode to an empty payload."""
         self.assertEqual(decode_json_body("", decode_error_as_error_payload=False), {})

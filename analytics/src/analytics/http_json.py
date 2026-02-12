@@ -1,9 +1,10 @@
 """Helpers for decoding JSON API response bodies."""
 
 import json
+from typing import Any
 
 
-def decode_json_body(body: str, *, decode_error_as_error_payload: bool) -> dict:
+def decode_json_body(body: str, *, decode_error_as_error_payload: bool) -> dict[str, Any]:
     """Decode a JSON body with configurable fallback on decode errors.
 
     Args:
