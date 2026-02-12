@@ -13,6 +13,7 @@ import urllib.request
 from contextlib import closing
 from pathlib import Path
 
+from analytics.http_json import decode_json_body
 from analytics.tests._helpers import repository_root_for_test
 
 try:
@@ -46,14 +47,11 @@ def _post_json(url: str, payload: dict) -> tuple[int, dict]:
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
             body = resp.read().decode("utf-8")
-            decoded = json.loads(body) if body else {}
+            decoded = decode_json_body(body, decode_error_as_error_payload=False)
             return resp.status, decoded
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8") if exc.fp is not None else ""
-        try:
-            decoded = json.loads(body) if body else {}
-        except json.JSONDecodeError:
-            decoded = {"error": body} if body else {}
+        decoded = decode_json_body(body, decode_error_as_error_payload=True)
         return exc.code, decoded
 
 

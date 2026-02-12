@@ -17,6 +17,7 @@ from dagster import (
     asset,
     sensor,
 )
+from analytics.http_json import decode_json_body
 
 
 def _latest_snapshot_path() -> Path:
@@ -94,17 +95,11 @@ def _post_json(url: str, payload: dict) -> tuple[int, dict]:
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
             body = resp.read().decode("utf-8")
-            try:
-                parsed = json.loads(body) if body else {}
-            except json.JSONDecodeError:
-                parsed = {"error": body} if body else {}
+            parsed = decode_json_body(body, decode_error_as_error_payload=False)
             return resp.status, parsed
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8") if exc.fp is not None else ""
-        try:
-            parsed = json.loads(body) if body else {}
-        except json.JSONDecodeError:
-            parsed = {"error": body} if body else {}
+        parsed = decode_json_body(body, decode_error_as_error_payload=True)
         return exc.code, parsed
 
 
