@@ -3,8 +3,8 @@ package api
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
-	"io"
+	"errors"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -171,17 +171,18 @@ func (s *TestingServer) handleSnapshots(w http.ResponseWriter, r *http.Request) 
 
 	db, err := openTestingDB(r.Context(), req.TestName)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		log.Printf("testing snapshots open db failed for %q: %v", req.TestName, err)
+		writeError(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
 	defer db.Close()
 
-	path, err := snapshot.ExportForTest(r.Context(), db, req.TestName, req.SnapshotName)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+	if _, err := snapshot.ExportForTest(r.Context(), db, req.TestName, req.SnapshotName); err != nil {
+		log.Printf("testing snapshots export failed for %q/%q: %v", req.TestName, req.SnapshotName, err)
+		writeError(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"snapshotPath": path})
+	writeJSON(w, http.StatusOK, map[string]string{"snapshotName": req.SnapshotName})
 }
 
 func (s *TestingServer) handleReset(w http.ResponseWriter, r *http.Request) {
@@ -201,9 +202,22 @@ func (s *TestingServer) handleReset(w http.ResponseWriter, r *http.Request) {
 
 	// Reset removes only files for the requested test dataset.
 	dbPath := testingDBPath(req.TestName)
-	_ = os.Remove(dbPath)
-	_ = os.Remove(dbPath + "-wal")
-	_ = os.Remove(dbPath + "-shm")
+	paths := []string{dbPath, dbPath + "-wal", dbPath + "-shm"}
+	removalFailed := false
+	for _, path := range paths {
+		err := os.Remove(path)
+		if err == nil || errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		log.Printf("reset remove failed for %s: %v", path, err)
+		if _, statErr := os.Stat(path); statErr == nil {
+			removalFailed = true
+		}
+	}
+	if removalFailed {
+		writeError(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
@@ -233,17 +247,4 @@ func testingDBPath(testName string) string {
 // isValidSlug enforces the lowercase-hyphen slug format used in test paths.
 func isValidSlug(value string) bool {
 	return slugRe.MatchString(value)
-}
-
-// decodeStrictJSON rejects unknown fields and trailing JSON tokens.
-func decodeStrictJSON(r io.Reader, out any) error {
-	dec := json.NewDecoder(r)
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(out); err != nil {
-		return err
-	}
-	if err := dec.Decode(&struct{}{}); err != io.EOF {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
 }

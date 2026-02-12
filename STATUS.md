@@ -21,4 +21,4 @@ This file is canonical for durable progress snapshots and outcomes.
 
 ## Evidence
 - Review changed files with:
-  - `git diff -- `
+  - `git diff -- .`

@@ -97,13 +97,23 @@ func GetOrCreateAggregate(ctx context.Context, db *sql.DB, key AggregateKey, num
 			ctx,
 			`INSERT INTO aggregates (control_id, model_id, quarter_index, blob)
 			 VALUES (?, ?, ?, ?)
-			 ON CONFLICT(control_id, model_id, quarter_index) DO UPDATE SET blob=excluded.blob`,
+			 ON CONFLICT(control_id, model_id, quarter_index) DO NOTHING`,
 			key.ControlID,
 			key.ModelID,
 			key.QuarterIndex,
 			blobBytes,
 		)
 		if err != nil {
+			return nil, err
+		}
+		row = db.QueryRowContext(
+			ctx,
+			`SELECT blob FROM aggregates WHERE control_id = ? AND model_id = ? AND quarter_index = ?`,
+			key.ControlID,
+			key.ModelID,
+			key.QuarterIndex,
+		)
+		if err := row.Scan(&blobBytes); err != nil {
 			return nil, err
 		}
 		return blobBytes, nil
@@ -131,7 +141,47 @@ func UpdateAggregate(ctx context.Context, db *sql.DB, key AggregateKey, numState
 		}
 	}()
 
-	row := conn.QueryRowContext(
+	if err := updateAggregateWithQueryExec(
+		ctx,
+		conn,
+		conn,
+		key,
+		numStates,
+		update,
+	); err != nil {
+		return err
+	}
+
+	if _, err := conn.ExecContext(ctx, "COMMIT"); err != nil {
+		return err
+	}
+	committed = true
+	return nil
+}
+
+// UpdateAggregateTx performs aggregate read-modify-write using a caller-owned
+// transaction. The caller is responsible for commit/rollback.
+func UpdateAggregateTx(ctx context.Context, tx *sql.Tx, key AggregateKey, numStates int, update func([]byte) error) error {
+	return updateAggregateWithQueryExec(ctx, tx, tx, key, numStates, update)
+}
+
+type queryRower interface {
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+}
+
+type execContexter interface {
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+}
+
+func updateAggregateWithQueryExec(
+	ctx context.Context,
+	queryDB queryRower,
+	execDB execContexter,
+	key AggregateKey,
+	numStates int,
+	update func([]byte) error,
+) error {
+	row := queryDB.QueryRowContext(
 		ctx,
 		`SELECT blob FROM aggregates WHERE control_id = ? AND model_id = ? AND quarter_index = ?`,
 		key.ControlID,
@@ -159,7 +209,7 @@ func UpdateAggregate(ctx context.Context, db *sql.DB, key AggregateKey, numState
 		return err
 	}
 
-	_, err = conn.ExecContext(
+	_, err := execDB.ExecContext(
 		ctx,
 		`INSERT INTO aggregates (control_id, model_id, quarter_index, blob)
 		 VALUES (?, ?, ?, ?)
@@ -172,11 +222,6 @@ func UpdateAggregate(ctx context.Context, db *sql.DB, key AggregateKey, numState
 	if err != nil {
 		return err
 	}
-
-	if _, err := conn.ExecContext(ctx, "COMMIT"); err != nil {
-		return err
-	}
-	committed = true
 	return nil
 }
 

@@ -13,8 +13,11 @@ from dagster import (
 
 
 def _latest_snapshot_path() -> Path:
-    root = _repository_root() / "aggregation" / "data" / "snapshots"
-    return _latest_snapshot_path_in_dir(root)
+    return _latest_snapshot_path_in_dir(_snapshot_root())
+
+
+def _snapshot_root() -> Path:
+    return _repository_root() / "aggregation" / "data" / "snapshots"
 
 
 def _repository_root() -> Path:
@@ -49,10 +52,15 @@ def snapshot_summary(context: AssetExecutionContext) -> MaterializeResult:
     conn = sqlite3.connect(snapshot_path)
     try:
         cur = conn.cursor()
-        cur.execute("SELECT COUNT(*) FROM controls")
-        controls_count = cur.fetchone()[0]
-        cur.execute("SELECT COUNT(*) FROM aggregates")
-        aggregates_count = cur.fetchone()[0]
+        try:
+            cur.execute("SELECT COUNT(*) FROM controls")
+            controls_count = cur.fetchone()[0]
+            cur.execute("SELECT COUNT(*) FROM aggregates")
+            aggregates_count = cur.fetchone()[0]
+        except (sqlite3.OperationalError, sqlite3.DatabaseError) as exc:
+            message = f"failed snapshot query for {snapshot_path}: {exc}"
+            context.log.error(message)
+            raise RuntimeError(message) from exc
     finally:
         conn.close()
 

@@ -7,11 +7,8 @@ dependencies = [
   "dagster-webserver>=1.7.0",
 ]
 
-[project.optional-dependencies]
-# Placeholder for future analytics deps (e.g., numpy, scipy).
-
 [tool.dagster]
-module_name = "definitions"
+module_name = "analytics.definitions"
 
 [build-system]
 requires = ["setuptools>=68", "wheel"]

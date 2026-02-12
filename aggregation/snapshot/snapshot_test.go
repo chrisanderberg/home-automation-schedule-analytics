@@ -137,3 +137,24 @@ func TestExportForTestUsesDeterministicTestPath(t *testing.T) {
 		t.Fatalf("snapshot path mismatch: got %s want suffix %s", snapshotPath, wantSuffix)
 	}
 }
+
+// TestExportForTestRejectsPathTraversal verifies snapshot test naming rejects
+// path separators so callers cannot escape test-data/snapshots.
+func TestExportForTestRejectsPathTraversal(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer db.Close()
+	if err := storage.InitSchema(ctx, db); err != nil {
+		t.Fatalf("init schema: %v", err)
+	}
+
+	if _, err := ExportForTest(ctx, db, "../case", "snapshot"); err == nil {
+		t.Fatalf("expected path traversal testName to fail")
+	}
+	if _, err := ExportForTest(ctx, db, "case", "../snapshot"); err == nil {
+		t.Fatalf("expected path traversal snapshotName to fail")
+	}
+}

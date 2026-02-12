@@ -1,6 +1,6 @@
 module home-automation-analytics/aggregation
 
-go 1.22
+go 1.24
 
 require modernc.org/sqlite v1.29.0
 

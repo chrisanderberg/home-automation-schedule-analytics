@@ -23,7 +23,7 @@ func BucketAtApparentSolar(timestampMs int64, latitude, longitude float64) (int,
 // night hours, yielding a synthetic 24-hour day used for experimental bucketing.
 func BucketAtUnequalHours(timestampMs int64, latitude, longitude float64) (int, error) {
 	if latitude > 90 || latitude < -90 || longitude > 180 || longitude < -180 {
-		return 0, ErrInvalidTimestamp
+		return 0, ErrInvalidCoordinates
 	}
 
 	eqTime := equationOfTimeMinutes(time.UnixMilli(timestampMs).UTC())

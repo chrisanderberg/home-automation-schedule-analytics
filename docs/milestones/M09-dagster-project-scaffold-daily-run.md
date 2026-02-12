@@ -21,7 +21,7 @@ This file is canonical for Milestone 09 execution details.
 ## Acceptance checklist
 - [ ] Scaffolding + tests step complete.
 - [ ] Implementation step complete.
-- [ ] `go test ./...` passes.
+- [ ] `python -m pytest` passes.
 - [ ] No unapproved TODO sentinels in production code.
 
 ## Non-goals

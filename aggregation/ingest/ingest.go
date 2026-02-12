@@ -3,6 +3,8 @@ package ingest
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"fmt"
 	"time"
 
 	"home-automation-analytics/aggregation/blob"
@@ -29,35 +31,59 @@ func ValidateHolding(input HoldingInput) error {
 // per-bucket elapsed milliseconds into UTC and Local holding regions.
 func IngestHolding(ctx context.Context, db *sql.DB, cfg Config, input HoldingInput) error {
 	if err := ValidateHolding(input); err != nil {
-		return err
+		return fmt.Errorf("%w: %w", ErrValidation, err)
 	}
 
 	control, loc, err := resolveControlAndLocation(ctx, db, cfg, input.ControlID)
 	if err != nil {
+		if errors.Is(err, storage.ErrNotFound) {
+			return fmt.Errorf("%w: %w", ErrValidation, err)
+		}
 		return err
 	}
 	if input.State >= control.NumStates {
-		return ErrInvalidInput
+		return fmt.Errorf("%w: %w", ErrValidation, ErrInvalidInput)
 	}
 
 	quarterSpans, err := quarter.SplitIntervalUTC(input.StartTimeMs, input.EndTimeMs)
 	if err != nil {
+		if errors.Is(err, quarter.ErrInvalidInterval) {
+			return fmt.Errorf("%w: %w", ErrValidation, err)
+		}
 		return err
 	}
 
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
 	for _, span := range quarterSpans {
 		key := storage.AggregateKey{ControlID: input.ControlID, ModelID: input.ModelID, QuarterIndex: span.QuarterIndex}
-		updateErr := applyHoldingQuarter(ctx, db, key, control.NumStates, input.State, span.StartMs, span.EndMs, loc)
+		updateErr := applyHoldingQuarter(ctx, tx, key, control.NumStates, input.State, span.StartMs, span.EndMs, loc)
 		if updateErr != nil {
+			if IsValidationError(updateErr) {
+				return fmt.Errorf("%w: %w", ErrValidation, updateErr)
+			}
 			return updateErr
 		}
 	}
 
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	committed = true
 	return nil
 }
 
-func applyHoldingQuarter(ctx context.Context, db *sql.DB, key storage.AggregateKey, numStates int, state int, startMs int64, endMs int64, loc *time.Location) error {
-	return storage.UpdateAggregate(ctx, db, key, numStates, func(data []byte) error {
+func applyHoldingQuarter(ctx context.Context, tx *sql.Tx, key storage.AggregateKey, numStates int, state int, startMs int64, endMs int64, loc *time.Location) error {
+	return storage.UpdateAggregateTx(ctx, tx, key, numStates, func(data []byte) error {
 		b, err := blob.NewBlob(numStates)
 		if err != nil {
 			return err
@@ -95,7 +121,11 @@ func applyHoldingClockSpans(b *blob.Blob, numStates int, state int, clock int, s
 		if err != nil {
 			return err
 		}
-		if err := b.SetU64(idx, v+uint64(s.Millis)); err != nil {
+		if s.Millis < 0 {
+			return fmt.Errorf("%w: negative holding millis for bucket %d", ErrInvalidInput, s.Bucket)
+		}
+		millis := uint64(s.Millis)
+		if err := b.SetU64(idx, v+millis); err != nil {
 			return err
 		}
 	}

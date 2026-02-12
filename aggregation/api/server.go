@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 
 	"home-automation-analytics/aggregation/ingest"
@@ -57,7 +58,12 @@ func (s *Server) handleHolding(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := r.Context()
 	if err := ingest.IngestHolding(ctx, s.db, s.cfg, input); err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		if ingest.IsValidationError(err) {
+			writeError(w, http.StatusBadRequest, "invalid input")
+			return
+		}
+		log.Printf("handleHolding ingest failed: %v", err)
+		writeError(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
 	writeJSON(w, http.StatusAccepted, map[string]string{"status": "accepted"})
@@ -99,7 +105,8 @@ func (s *Server) handleSnapshots(w http.ResponseWriter, r *http.Request) {
 	}
 	path, err := snapshot.Export(r.Context(), s.db)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		log.Printf("handleSnapshots export failed: %v", err)
+		writeError(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"snapshotPath": path})
@@ -114,6 +121,12 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 
 func writeError(w http.ResponseWriter, status int, message string) {
 	writeJSON(w, status, map[string]string{"error": message})
+}
+
+func decodeStrictJSON(r io.Reader, v any) error {
+	decoder := json.NewDecoder(r)
+	decoder.DisallowUnknownFields()
+	return decoder.Decode(v)
 }
 
 // WithContext injects a fixed context into a handler; primarily used by tests.

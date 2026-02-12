@@ -128,7 +128,10 @@ func TestTestingSnapshotUsesRequestedNames(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	path := resp["snapshotPath"]
+	if resp["snapshotName"] != "sanity-check" {
+		t.Fatalf("snapshot name mismatch: got %q want %q", resp["snapshotName"], "sanity-check")
+	}
+	path := filepath.Join(outputDir, "test-data", "snapshots", "case-one-sanity-check-snapshot.sqlite")
 	wantSuffix := filepath.Join("test-data", "snapshots", "case-one-sanity-check-snapshot.sqlite")
 	if !strings.HasSuffix(path, wantSuffix) {
 		t.Fatalf("snapshot path mismatch: got %s want suffix %s", path, wantSuffix)

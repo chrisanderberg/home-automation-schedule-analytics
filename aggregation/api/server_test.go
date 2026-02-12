@@ -9,7 +9,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -132,8 +131,17 @@ func TestSnapshotEndpoint(t *testing.T) {
 		t.Fatalf("missing snapshotPath in response: %s", w.Body.String())
 	}
 	wantDir := filepath.Join(outputDir, "data", "snapshots")
-	if !strings.HasSuffix(filepath.Dir(snapshotPath), filepath.Join("data", "snapshots")) {
-		t.Fatalf("snapshot dir mismatch: got %s want suffix %s", filepath.Dir(snapshotPath), wantDir)
+	gotDir := filepath.Dir(snapshotPath)
+	gotDirEval, err := filepath.EvalSymlinks(gotDir)
+	if err == nil {
+		gotDir = gotDirEval
+	}
+	wantDirEval, err := filepath.EvalSymlinks(wantDir)
+	if err == nil {
+		wantDir = wantDirEval
+	}
+	if gotDir != wantDir {
+		t.Fatalf("snapshot dir mismatch: got %s want %s", gotDir, wantDir)
 	}
 	if _, err := os.Stat(snapshotPath); err != nil {
 		t.Fatalf("snapshot file missing: %v", err)
