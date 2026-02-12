@@ -3,6 +3,8 @@ package ingest
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"fmt"
 
 	"home-automation-analytics/aggregation/blob"
 	"home-automation-analytics/aggregation/bucketing"
@@ -12,11 +14,11 @@ import (
 
 // TransitionInput represents one user-initiated directed state change.
 type TransitionInput struct {
-	ControlID   string
-	ModelID     string
-	FromState   int
-	ToState     int
-	TimestampMs int64
+	ControlID   string `json:"controlId"`
+	ModelID     string `json:"modelId"`
+	FromState   int    `json:"fromState"`
+	ToState     int    `json:"toState"`
+	TimestampMs int64  `json:"timestampMs"`
 }
 
 // ValidateTransition performs basic shape checks before touching storage.
@@ -37,15 +39,18 @@ func ValidateTransition(input TransitionInput) error {
 // directed transition counters for UTC and Local clocks in the quarter row.
 func IngestTransition(ctx context.Context, db *sql.DB, cfg Config, input TransitionInput) error {
 	if err := ValidateTransition(input); err != nil {
-		return err
+		return fmt.Errorf("%w: %w", ErrValidation, err)
 	}
 
 	control, loc, err := resolveControlAndLocation(ctx, db, cfg, input.ControlID)
 	if err != nil {
+		if errors.Is(err, storage.ErrNotFound) {
+			return fmt.Errorf("%w: %w", ErrValidation, err)
+		}
 		return err
 	}
 	if input.FromState >= control.NumStates || input.ToState >= control.NumStates {
-		return ErrInvalidInput
+		return fmt.Errorf("%w: %w", ErrValidation, ErrInvalidInput)
 	}
 
 	quarterIndex := quarter.QuarterIndexUTC(input.TimestampMs)

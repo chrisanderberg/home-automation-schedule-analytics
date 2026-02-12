@@ -56,4 +56,6 @@
 ### References
 - Aggregation requirements: `AGGREGATION_REQUIREMENTS.md`
 - Analytics requirements: `ANALYTICS_REQUIREMENTS.md`
+- API contracts: `API_CONTRACTS.md`
+- Architecture: `ARCHITECTURE.md`
 - Cross-cutting invariants: `INVARIANTS.md`

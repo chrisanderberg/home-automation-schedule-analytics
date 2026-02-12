@@ -66,7 +66,7 @@ Required fields:
 
 Behavior:
 - Counted in bucket containing `timestampMs` per defined clock.
-- Self transitions (`fromState == toState`) are rejected.
+- Self-transitions (`fromState == toState`) are rejected.
 - Invalid payloads are discarded with clear logging.
 
 ## Snapshot export

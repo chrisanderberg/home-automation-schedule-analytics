@@ -19,10 +19,10 @@ This file is canonical for Milestone 04 execution details.
   - ../../AGENTS.md
 
 ## Acceptance checklist
-- [ ] Scaffolding + tests step complete.
-- [ ] Implementation step complete.
-- [ ] `go test ./...` passes.
-- [ ] No unapproved TODO sentinels in production code.
+- [x] Scaffolding + tests step complete.
+- [x] Implementation step complete.
+- [x] `go test ./...` passes.
+- [x] No unapproved TODO sentinels in production code.
 
 ## Non-goals
 - [ ] No out-of-scope items from requirements were added.

@@ -253,12 +253,16 @@ func (s *TestingServer) handleSnapshots(w http.ResponseWriter, r *http.Request) 
 	}
 	defer db.Close()
 
-	if _, err := snapshot.ExportForTest(r.Context(), db, req.TestName, req.SnapshotName); err != nil {
+	snapshotPath, err := snapshot.ExportForTest(r.Context(), db, req.TestName, req.SnapshotName)
+	if err != nil {
 		log.Printf("testing snapshots export failed for %q/%q: %v", req.TestName, req.SnapshotName, err)
 		writeError(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"snapshotName": req.SnapshotName})
+	writeJSON(w, http.StatusOK, map[string]string{
+		"snapshotName": req.SnapshotName,
+		"snapshotPath": snapshotPath,
+	})
 }
 
 func (s *TestingServer) handleReset(w http.ResponseWriter, r *http.Request) {

@@ -184,12 +184,12 @@ func TestTestingSnapshotUsesRequestedNames(t *testing.T) {
 	if resp["snapshotName"] != "sanity-check" {
 		t.Fatalf("snapshot name mismatch: got %q want %q", resp["snapshotName"], "sanity-check")
 	}
-	path := filepath.Join(outputDir, "test-data", "snapshots", "case-one-sanity-check-snapshot.sqlite")
 	wantSuffix := filepath.Join("test-data", "snapshots", "case-one-sanity-check-snapshot.sqlite")
-	if !strings.HasSuffix(path, wantSuffix) {
-		t.Fatalf("snapshot path mismatch: got %s want suffix %s", path, wantSuffix)
+	snapshotPath := resp["snapshotPath"]
+	if !strings.HasSuffix(snapshotPath, wantSuffix) {
+		t.Fatalf("snapshot path mismatch: got %s want suffix %s (outputDir=%s)", snapshotPath, wantSuffix, outputDir)
 	}
-	if _, err := os.Stat(path); err != nil {
+	if _, err := os.Stat(snapshotPath); err != nil {
 		t.Fatalf("expected snapshot to exist: %v", err)
 	}
 }

@@ -48,7 +48,9 @@ func exportToPath(ctx context.Context, db *sql.DB, outputPath string) (_ string,
 	if err := os.MkdirAll(filepath.Dir(outputPath), 0o755); err != nil {
 		return "", err
 	}
-	_ = os.Remove(outputPath)
+	if err := os.Remove(outputPath); err != nil && !os.IsNotExist(err) {
+		return "", err
+	}
 
 	snapDB, err := sql.Open("sqlite", outputPath)
 	if err != nil {

@@ -5,17 +5,21 @@ import (
 	"time"
 )
 
+func durationFromOffsetMinutes(offsetMinutes float64) time.Duration {
+	return time.Duration(offsetMinutes * float64(time.Minute))
+}
+
 func BucketAtMeanSolar(timestampMs int64, latitude, longitude float64) (int, error) {
 	// Mean solar time is a longitude-only offset from UTC.
 	offsetMinutes := longitude * 4
-	adj := time.UnixMilli(timestampMs).UTC().Add(time.Duration(offsetMinutes) * time.Minute)
+	adj := time.UnixMilli(timestampMs).UTC().Add(durationFromOffsetMinutes(offsetMinutes))
 	return bucketFromTime(adj), nil
 }
 
 func BucketAtApparentSolar(timestampMs int64, latitude, longitude float64) (int, error) {
 	// Apparent solar adds the equation-of-time seasonal correction.
 	offsetMinutes := longitude*4 + equationOfTimeMinutes(time.UnixMilli(timestampMs).UTC())
-	adj := time.UnixMilli(timestampMs).UTC().Add(time.Duration(offsetMinutes) * time.Minute)
+	adj := time.UnixMilli(timestampMs).UTC().Add(durationFromOffsetMinutes(offsetMinutes))
 	return bucketFromTime(adj), nil
 }
 
@@ -29,7 +33,7 @@ func BucketAtUnequalHours(timestampMs int64, latitude, longitude float64) (int, 
 	eqTime := equationOfTimeMinutes(time.UnixMilli(timestampMs).UTC())
 	offsetMinutes := longitude*4 + eqTime
 
-	adj := time.UnixMilli(timestampMs).UTC().Add(time.Duration(offsetMinutes) * time.Minute)
+	adj := time.UnixMilli(timestampMs).UTC().Add(durationFromOffsetMinutes(offsetMinutes))
 	dayTime := time.Date(adj.Year(), adj.Month(), adj.Day(), 0, 0, 0, 0, time.UTC)
 	solarMinutes := (adj.Sub(dayTime)).Minutes()
 	if solarMinutes < 0 {
@@ -162,10 +166,10 @@ func splitIntervalWithOffset(startMs, endMs int64, offsetMinutes func(int64) flo
 	cur := startMs
 	for cur < endMs {
 		offset := offsetMinutes(cur)
-		adj := time.UnixMilli(cur).UTC().Add(time.Duration(offset) * time.Minute)
+		adj := time.UnixMilli(cur).UTC().Add(durationFromOffsetMinutes(offset))
 		bucket := bucketFromTime(adj)
 		adjBoundary := nextBoundaryUTC(adj.UnixMilli())
-		boundaryUTC := time.UnixMilli(adjBoundary).Add(-time.Duration(offset) * time.Minute).UnixMilli()
+		boundaryUTC := time.UnixMilli(adjBoundary).Add(-durationFromOffsetMinutes(offset)).UnixMilli()
 		if boundaryUTC <= cur {
 			boundaryUTC = cur + int64(5*60*1000)
 		}

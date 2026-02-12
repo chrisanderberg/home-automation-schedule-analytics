@@ -2,13 +2,10 @@ package snapshot
 
 import (
 	"context"
-	"database/sql"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	_ "modernc.org/sqlite"
 
 	"home-automation-analytics/aggregation/storage"
 )
@@ -17,7 +14,7 @@ import (
 // file in the runtime snapshots directory and preserves persisted row counts.
 func TestSnapshotExportCreatesConsistentCopy(t *testing.T) {
 	ctx := context.Background()
-	db, err := sql.Open("sqlite", ":memory:")
+	db, err := storage.Open(":memory:")
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
@@ -60,7 +57,7 @@ func TestSnapshotExportCreatesConsistentCopy(t *testing.T) {
 		t.Fatalf("snapshot file missing: %v", err)
 	}
 
-	snapDB, err := sql.Open("sqlite", snapshotPath)
+	snapDB, err := storage.Open(snapshotPath)
 	if err != nil {
 		t.Fatalf("open snapshot: %v", err)
 	}
@@ -113,7 +110,7 @@ func TestDefaultSnapshotPathUsesDataSnapshotsDir(t *testing.T) {
 // uses the required deterministic test-data naming convention.
 func TestExportForTestUsesDeterministicTestPath(t *testing.T) {
 	ctx := context.Background()
-	db, err := sql.Open("sqlite", ":memory:")
+	db, err := storage.Open(":memory:")
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
@@ -148,7 +145,7 @@ func TestExportForTestUsesDeterministicTestPath(t *testing.T) {
 // path separators so callers cannot escape test-data/snapshots.
 func TestExportForTestRejectsPathTraversal(t *testing.T) {
 	ctx := context.Background()
-	db, err := sql.Open("sqlite", ":memory:")
+	db, err := storage.Open(":memory:")
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
