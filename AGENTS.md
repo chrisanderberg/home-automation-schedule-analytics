@@ -66,6 +66,13 @@ Additional run/build commands will be added once the repo layout is established.
 - Requirements: `REQUIREMENTS.md`
 - Plan: `PLAN.md`
 - Assumptions / decisions log: `DECISIONS.md`
+- Current execution context: `CURRENT.md`
+- Durable progress snapshots: `STATUS.md`
+- Testing commands and conventions: `TESTING.md`
+- Architecture map: `ARCHITECTURE.md`
+- API contracts: `API_CONTRACTS.md`
+- Cross-cutting invariants: `INVARIANTS.md`
+- Domain glossary: `GLOSSARY.md`
 
 ## Skills
 A skill is a set of local instructions to follow that is stored in a `SKILL.md` file. Below is the list of skills that can be used. Each entry includes a name, description, and file path so you can open the source for full instructions when using a specific skill.
