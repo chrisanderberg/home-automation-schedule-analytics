@@ -66,7 +66,10 @@ func TestTestingControlsUpsertWritesControl(t *testing.T) {
 		t.Fatalf("expected 202, got %d, body=%s", w.Code, w.Body.String())
 	}
 
-	dbPath := testingDBPath("case-one")
+	dbPath, err := testingDBPath("case-one")
+	if err != nil {
+		t.Fatalf("resolve db path: %v", err)
+	}
 	db, err := storage.Open(dbPath)
 	if err != nil {
 		t.Fatalf("open db: %v", err)
@@ -111,7 +114,10 @@ func TestTestingHoldingWritesToTestSpecificDB(t *testing.T) {
 		t.Fatalf("expected 202, got %d, body=%s", w.Code, w.Body.String())
 	}
 
-	dbPath := testingDBPath("case-one")
+	dbPath, err := testingDBPath("case-one")
+	if err != nil {
+		t.Fatalf("resolve db path: %v", err)
+	}
 	if _, err := os.Stat(dbPath); err != nil {
 		t.Fatalf("expected test db to exist: %v", err)
 	}
@@ -209,7 +215,14 @@ func TestTestingSnapshotContainsSeededControl(t *testing.T) {
 		t.Fatalf("expected snapshot 200, got %d, body=%s", snapshotRes.Code, snapshotRes.Body.String())
 	}
 
-	snapshotPath := filepath.Join(outputDir, "test-data", "snapshots", testName+"-"+snapshotName+"-snapshot.sqlite")
+	var snapshotResp map[string]string
+	if err := json.Unmarshal(snapshotRes.Body.Bytes(), &snapshotResp); err != nil {
+		t.Fatalf("decode snapshot response: %v", err)
+	}
+	snapshotPath, ok := snapshotResp["snapshotPath"]
+	if !ok || snapshotPath == "" {
+		t.Fatalf("response missing snapshotPath")
+	}
 	db, err := storage.Open(snapshotPath)
 	if err != nil {
 		t.Fatalf("open snapshot db: %v", err)

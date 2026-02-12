@@ -282,14 +282,13 @@ func (s *TestingServer) handleReset(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Reset removes only files for the requested test dataset.
-	root, err := testDataRootDir()
+	dbPath, err := testingDBPath(req.TestName)
 	if err != nil {
 		log.Printf("testing reset path resolution failed for %q: %v", req.TestName, err)
 		writeError(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
-	dbPath := filepath.Join(root, req.TestName+"-test-data.sqlite")
-	paths := []string{dbPath, dbPath + "-wal", dbPath + "-shm"}
+	paths := []string{dbPath, dbPath + "-wal", dbPath + "-shm", dbPath + "-journal"}
 	removalFailed := false
 	for _, path := range paths {
 		err := os.Remove(path)
@@ -318,7 +317,7 @@ func openTestingDB(ctx context.Context, testName string) (*sql.DB, error) {
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		return nil, err
 	}
-	dbPath := testingDBPath(testName)
+	dbPath := filepath.Join(root, testName+"-test-data.sqlite")
 	db, err := storage.Open(dbPath)
 	if err != nil {
 		return nil, err
@@ -331,14 +330,12 @@ func openTestingDB(ctx context.Context, testName string) (*sql.DB, error) {
 }
 
 // testingDBPath is the canonical per-test DB filename contract.
-func testingDBPath(testName string) string {
+func testingDBPath(testName string) (string, error) {
 	root, err := testDataRootDir()
 	if err != nil {
-		// Fallback keeps callsites resilient; openTestingDB still returns explicit
-		// errors from testDataRootDir before using this fallback path.
-		return filepath.Join("test-data", testName+"-test-data.sqlite")
+		return "", err
 	}
-	return filepath.Join(root, testName+"-test-data.sqlite")
+	return filepath.Join(root, testName+"-test-data.sqlite"), nil
 }
 
 func testDataRootDir() (string, error) {

@@ -131,15 +131,36 @@ func unequalHoursBoundary(t time.Time, latitude, longitude float64) (time.Time, 
 	if err != nil {
 		return time.Time{}, err
 	}
-	nextBucketStart := t.Add(5 * time.Minute)
+	lastSameBucket := t
+	nextBucketStart := t.Add(1 * time.Minute)
 	for i := 0; i < 400; i++ { // safety cap
 		b, err := BucketAtUnequalHours(nextBucketStart.UnixMilli(), latitude, longitude)
 		if err != nil {
 			return time.Time{}, err
 		}
 		if b != bucket {
-			return nextBucketStart, nil
+			// Refine to the earliest differing instant between last same-bucket
+			// timestamp and first differing timestamp.
+			low := lastSameBucket
+			high := nextBucketStart
+			for high.Sub(low) > time.Millisecond {
+				mid := low.Add(high.Sub(low) / 2)
+				midBucket, err := BucketAtUnequalHours(mid.UnixMilli(), latitude, longitude)
+				if err != nil {
+					return time.Time{}, err
+				}
+				if midBucket == bucket {
+					low = mid
+					continue
+				}
+				high = mid
+			}
+			if !high.After(t) {
+				return time.Time{}, ErrInvalidInterval
+			}
+			return high, nil
 		}
+		lastSameBucket = nextBucketStart
 		nextBucketStart = nextBucketStart.Add(1 * time.Minute)
 	}
 	return time.Time{}, ErrInvalidInterval

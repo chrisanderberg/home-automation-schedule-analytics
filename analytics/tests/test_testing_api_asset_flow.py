@@ -6,6 +6,7 @@ import time
 import unittest
 import urllib.error
 import urllib.request
+from contextlib import closing
 from pathlib import Path
 
 try:
@@ -167,12 +168,9 @@ class TestingAPIAssetFlowTests(unittest.TestCase):
 
                 @asset(name="exported_testing_snapshot")
                 def exported_testing_snapshot():
-                    conn = sqlite3.connect(snapshot_path)
-                    try:
+                    with closing(sqlite3.connect(snapshot_path)) as conn:
                         controls_count = conn.execute("SELECT COUNT(*) FROM controls").fetchone()[0]
                         aggregates_count = conn.execute("SELECT COUNT(*) FROM aggregates").fetchone()[0]
-                    finally:
-                        conn.close()
 
                     if controls_count < 1:
                         raise RuntimeError("snapshot has no controls")

@@ -5,6 +5,7 @@ import json
 import os
 import urllib.error
 import urllib.request
+from contextlib import closing
 from pathlib import Path
 
 from dagster import (
@@ -41,9 +42,17 @@ def _testing_snapshot_root() -> Path:
 def _repository_root() -> Path:
     """Resolve the monorepo root by searching parent directories."""
     start = Path(__file__).resolve()
+    analytics_only_candidate: Path | None = None
     for parent in start.parents:
-        if (parent / "aggregation").is_dir():
-            return parent
+        has_aggregation = (parent / "aggregation").is_dir()
+        has_analytics = (parent / "analytics").is_dir()
+        if has_aggregation or has_analytics:
+            if has_aggregation:
+                return parent
+            if analytics_only_candidate is None:
+                analytics_only_candidate = parent
+    if analytics_only_candidate is not None:
+        return analytics_only_candidate
     raise RuntimeError(f"repository root not found from {start}")
 
 
@@ -117,8 +126,7 @@ def _summarize_snapshot(
     else:
         context.log.info("using snapshot %s", snapshot_path)
 
-    conn = sqlite3.connect(snapshot_path)
-    try:
+    with closing(sqlite3.connect(snapshot_path)) as conn:
         cur = conn.cursor()
         try:
             cur.execute("SELECT COUNT(*) FROM controls")
@@ -129,8 +137,6 @@ def _summarize_snapshot(
             message = f"failed snapshot query for {snapshot_path}: {exc}"
             context.log.exception(message)
             raise RuntimeError(message) from exc
-    finally:
-        conn.close()
 
     return MaterializeResult(
         metadata={
@@ -214,8 +220,7 @@ def testing_api_snapshot_validation(context: AssetExecutionContext) -> Materiali
     if not snapshot_path.exists():
         raise RuntimeError(f"expected snapshot not found after export: {snapshot_path}")
 
-    conn = sqlite3.connect(snapshot_path)
-    try:
+    with closing(sqlite3.connect(snapshot_path)) as conn:
         try:
             controls_count = conn.execute("SELECT COUNT(*) FROM controls").fetchone()[0]
             aggregates_count = conn.execute("SELECT COUNT(*) FROM aggregates").fetchone()[0]
@@ -225,8 +230,6 @@ def testing_api_snapshot_validation(context: AssetExecutionContext) -> Materiali
             # report a structured failure reason without a hard Dagster crash.
             context.log.exception(message)
             return MaterializeResult(metadata={"snapshot_missing": True, "error": message})
-    finally:
-        conn.close()
 
     if controls_count < 2:
         raise RuntimeError(f"snapshot should contain at least 2 controls, got {controls_count}")
