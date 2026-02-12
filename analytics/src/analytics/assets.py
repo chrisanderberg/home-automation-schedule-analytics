@@ -13,8 +13,16 @@ from dagster import (
 
 
 def _latest_snapshot_path() -> Path:
-    root = Path(__file__).resolve().parents[2] / "aggregation" / "data" / "snapshots"
+    root = _repository_root() / "aggregation" / "data" / "snapshots"
     return _latest_snapshot_path_in_dir(root)
+
+
+def _repository_root() -> Path:
+    start = Path(__file__).resolve()
+    for parent in start.parents:
+        if (parent / "aggregation").is_dir():
+            return parent
+    raise RuntimeError(f"repository root not found from {start}")
 
 
 def _latest_snapshot_path_in_dir(root: Path) -> Path:

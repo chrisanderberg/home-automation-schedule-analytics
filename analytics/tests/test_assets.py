@@ -20,7 +20,7 @@ from analytics.assets import _latest_snapshot_path_in_dir
 
 class LatestSnapshotPathTests(unittest.TestCase):
     def test_fixed_snapshot_dir_is_data_snapshots(self):
-        expected = Path(__file__).resolve().parents[2] / "aggregation" / "data" / "snapshots"
+        expected = _repository_root_for_test() / "aggregation" / "data" / "snapshots"
         self.assertEqual(_snapshot_path_root_for_test(), expected)
 
     def test_selects_newest_sqlite_file(self):
@@ -37,7 +37,15 @@ class LatestSnapshotPathTests(unittest.TestCase):
 
 
 def _snapshot_path_root_for_test() -> Path:
-    return Path(__file__).resolve().parents[2] / "aggregation" / "data" / "snapshots"
+    return _repository_root_for_test() / "aggregation" / "data" / "snapshots"
+
+
+def _repository_root_for_test() -> Path:
+    start = Path(__file__).resolve()
+    for parent in start.parents:
+        if (parent / "aggregation").is_dir():
+            return parent
+    raise AssertionError(f"repository root not found from {start}")
 
 if __name__ == "__main__":
     unittest.main()
