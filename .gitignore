@@ -1,0 +1,53 @@
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Go build cache
+/go.work
+/go.work.sum
+
+# Go coverage
+cover.out
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+*.whl
+*.log
+
+# Python envs
+.venv/
+venv/
+.env/
+
+# Conda
+conda-meta/
+
+# uv
+uv.lock
+
+# Dagster
+.dagster/
+.dagster-home/
+analytics/.tmp_dagster_home_*
+
+# SQLite artifacts
+aggregation/data/snapshots/
+*.sqlite
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/

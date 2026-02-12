@@ -1,0 +1,19 @@
+package storage
+
+// Schema defines canonical SQLite tables for controls and dense aggregates.
+const Schema = `
+CREATE TABLE IF NOT EXISTS controls (
+  control_id TEXT PRIMARY KEY,
+  control_type TEXT NOT NULL,
+  num_states INTEGER NOT NULL,
+  state_labels TEXT
+);
+
+CREATE TABLE IF NOT EXISTS aggregates (
+  control_id TEXT NOT NULL,
+  model_id TEXT NOT NULL,
+  quarter_index INTEGER NOT NULL,
+  blob BLOB NOT NULL,
+  PRIMARY KEY (control_id, model_id, quarter_index)
+);
+`

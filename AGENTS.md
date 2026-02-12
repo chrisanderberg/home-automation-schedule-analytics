@@ -3,13 +3,19 @@
 ## Instructions (read first)
 
 ### Authority and scope
-- This file is the single source of truth for:
-  1) how to work in this repo,
-  2) the requirements, and
-  3) the milestone plan.
-- Requirements in this file may be changed only with explicit user approval. It is okay to ask for changes, but do not change requirements without asking first.
-- Do not introduce new semantics that contradict the Requirements section below.
-- Keep changes tightly scoped to the current milestone.
+- This file is the single source of truth for how to work in this repo.
+- Product/system requirements are canonical in:
+  - `REQUIREMENTS.md` (umbrella + shared guardrails)
+  - `AGGREGATION_REQUIREMENTS.md` (aggregation domain)
+  - `ANALYTICS_REQUIREMENTS.md` (analytics domain)
+- Milestone sequencing is canonical in `PLAN.md`.
+- Assumptions and decisions are canonical in `DECISIONS.md`.
+- Do not introduce new semantics that contradict the applicable canonical requirements document(s).
+- Keep changes tightly scoped to the current milestone in `PLAN.md`.
+
+### Requirement change control
+- Requirements may be changed only with explicit user approval.
+- It is okay to ask for requirement changes, but do not change requirements without asking first.
 
 ### Milestone execution rule (two-step)
 Each milestone must be implemented in two steps:
@@ -23,11 +29,20 @@ Each milestone must be implemented in two steps:
 - Fill in TODOs until tests pass.
 - Ensure `go test ./...` passes before completing the milestone.
 
+### Milestone Definition of Done (DoD)
+Before marking a milestone complete:
+- `go test ./...` passes.
+- No placeholder TODO sentinels remain in production code unless explicitly approved by user.
+- Non-obvious logic has reviewer-oriented comments explaining intent/invariants.
+- Code structure is reviewable (large functions split into focused helpers when practical).
+- New or changed Python functions/classes in production modules include docstrings.
+
 ### Assumptions and TBD handling
 - If something is not specified, do not guess silently.
 - Prefer parameterization when possible.
-- Record any necessary assumptions in the “Assumptions / Decisions log” section at the end
-  of this file.
+- Record any necessary assumptions in `DECISIONS.md`.
+- If analytics Python tooling appears missing (for example `dagster`, `ruff`, `pytest`, or imports not found), ask the user for environment activation steps (such as conda/venv) before proceeding.
+- Do not require machine-specific environment details to be committed; keep those in local-only setup files when needed.
 
 ### Output format expectations (for coding agents)
 For any milestone implementation, include:
@@ -35,6 +50,8 @@ For any milestone implementation, include:
 - tests added/changed
 - commands to run to verify
 - assumptions made (if any)
+- readability improvements made (if any)
+- invariants documented or clarified (if any)
 
 ---
 
@@ -50,201 +67,42 @@ Additional run/build commands will be added once the repo layout is established.
 
 ---
 
-## Requirements (single source of truth)
+## Canonical documents
 
-### Repo purpose and scope
-- This repository is a monorepo with two components:
-  - A Go aggregation service that ingests control measurement events (holding intervals and
-    transitions) and stores dense, bucketed aggregates in SQLite.
-  - A Dagster analytics project that reads SQLite snapshot files and generates analytics
-    outputs and reports. The Dagster web UI is used to view runs and report artifacts.
-- Out of scope:
-  - custom user control UI/control panel
-  - changing canonical clock set, bucket definitions, or blob layout
-  - production auth/security/scaling
+- Requirements umbrella: `REQUIREMENTS.md`
+- Aggregation requirements: `AGGREGATION_REQUIREMENTS.md`
+- Analytics requirements: `ANALYTICS_REQUIREMENTS.md`
+- Plan: `PLAN.md`
+- Assumptions / decisions log: `DECISIONS.md`
+- Current execution context: `CURRENT.md`
+- Durable progress snapshots: `STATUS.md`
+- Testing commands and conventions: `TESTING.md`
+- Architecture map: `ARCHITECTURE.md`
+- API contracts: `API_CONTRACTS.md`
+- Cross-cutting invariants: `INVARIANTS.md`
+- Domain glossary: `GLOSSARY.md`
 
-### High-level model
-Controls are discrete state variables.
-
-- Discrete/radio controls: N states, where 2 <= N <= 10
-- Slider controls: N = 6 (discretized slider states)
-
-Controls are associated with automation models. Both automation and humans can
-change control state. Only human-initiated transitions are counted as transitions
-for analytics.
-
-This repo’s aggregation service assumes upstream only sends countable (human)
-transitions to the transition ingestion endpoint.
-
-### Five clocks (always computed in parallel)
-The system uses exactly five clocks, always computed and stored in parallel:
-
-0) UTC
-1) Local time
-2) Mean solar time
-3) Apparent solar time
-4) Unequal hours
-
-Clocks are treated as an experiment (schedule A/B test): analytics compares how
-preference estimates correlate under different time coordinate systems.
-
-### Time-of-week bucketing
-- 5-minute buckets
-- 288 buckets/day (24 * 12)
-- 2016 buckets/week (7 * 288)
-- Buckets are indexed per clock.
-
-Day-of-week indexing convention:
-- Monday = 0
-- Tuesday = 1
-- Wednesday = 2
-- Thursday = 3
-- Friday = 4
-- Saturday = 5
-- Sunday = 6
-
-Bucket index `b` in 0..2015:
-
-- `bucketWithinDay = hour * 12 + floor(minute / 5)` (0..287)
-- `b = dayIndex * 288 + bucketWithinDay` (0..2015)
-
-### Measurement semantics (aggregation inputs)
-Two fundamental operations are ingested:
-
-1) Holding interval (time in state)
-- Input: controlId, modelId, state, startTimeMs, endTimeMs
-- Time representation: UTC epoch milliseconds (integers)
-- Interval semantics: half-open [startTimeMs, endTimeMs)
-- Holding time is measured in real elapsed milliseconds.
-- The holding interval is split across all overlapped time-of-week buckets, per
-  clock, and accumulated.
-
-2) Transition event (user correction)
-- Input: controlId, modelId, fromState, toState, timestampMs
-- Counted in the time-of-week bucket containing timestampMs, per clock.
-- Self-transitions (fromState == toState) are rejected/not stored.
-
-Data integrity posture:
-- If integrity fails (invalid timestamps, invalid states, missing control
-  metadata, etc.), discard the input and log a clear reason.
-
-Undefined time-of-day cases:
-- If a clock mapping is undefined (e.g., unequal hours when no sunrise/sunset),
-  do not count data for that clock only; still count other clocks when defined.
-
-### Quarter windows (UTC calendar quarters)
-Quarter windows are UTC calendar quarters:
-
-- Q1: January–March
-- Q2: April–June
-- Q3: July–September
-- Q4: October–December
-
-Quarters are variable-length and may include leap days.
-
-Quarter windows are independent of the five clocks.
-
-A suggested integer representation:
-
-- `quarterIndex = (utcYear - 1970) * 4 + (quarterNumber - 1)`
-
-If an ingested holding interval crosses a quarter boundary, it must be split and
-applied to multiple quarter windows.
-
-### Storage model (SQLite) — conceptual
-The aggregation service stores:
-
-1) Control metadata:
-- controlId
-- control type (discrete vs slider)
-- numStates (2..10; slider typically 6)
-- optional state labels
-
-2) Aggregated sufficient statistics keyed by:
-- controlId
-- modelId
-- quarterIndex (UTC calendar quarter)
-- payload: dense numeric blob described below
-
-SQLite is the canonical storage format for aggregates.
-
-### Dense blob layout (canonical)
-Constants:
-- B = 2016 buckets/week
-- C = 5 clocks
-- G = B * C = 10080 values per “bucket group”
-- N = numStates
-
-Clock ordering within each group of 10080:
-0) UTC (2016)
-1) Local (2016)
-2) Mean solar (2016)
-3) Apparent solar (2016)
-4) Unequal hours (2016)
-
-Blob structure for one (controlId, modelId, quarterIndex):
-
-1) Holding times (milliseconds), grouped by state:
-- state 0 holding: G values
-- state 1 holding: G values
-- ...
-- state N-1 holding: G values
-
-2) Transition counts, grouped by (fromState, toState) excluding diagonal:
-- (0→1), (0→2), ..., (0→N-1)
-- (1→0), (1→2), ..., (1→N-1)
-- ...
-- (N-1→0), (N-1→1), ..., (N-1→N-2)
-
-Total stored values:
-- (N + N*(N-1)) * G = N^2 * G
-
-Index math (zero-based):
-
-- `holdIndex(s,c,b) = (s*G) + (c*B) + b`
-
-Transition group indexing:
-- `offsetWithinFromBlock(from,to) = (to < from) ? to : (to - 1)`
-- `transGroupIndex(from,to) = from*(N-1) + offsetWithinFromBlock(from,to)`
-
-- `transIndex(from,to,c,b) = (N*G) + (transGroupIndex(from,to)*G) + (c*B) + b`
-
-Numeric encoding decision:
-- Store all blob values as unsigned 64-bit integers (u64) in little-endian.
-  - holding times: elapsed milliseconds
-  - transition counts: integer increments
-
-### Dagster snapshot rule (analytics input)
-Dagster analytics must read from a SQLite snapshot file, not the live DB.
-
-A daily cadence (about once per day) is the default.
-
----
-
-## Plan (milestones and ordering)
-
-Milestones are implemented using the two-step rule in Instructions.
-
-1. Milestone 0 — Repo bootstrap + unit test harness
-2. Milestone 1 — Dense blob accessors + invariants tests
-3. Milestone 2 — SQLite schema + persistence for controls and aggregates
-4. Milestone 3 — UTC and Local clock bucketing + interval splitting
-5. Milestone 4 — Quarter splitting (UTC calendar quarters)
-6. Milestone 5 — Holding ingestion end-to-end (UTC + Local)
-7. Milestone 6 — Transition ingestion end-to-end (UTC + Local)
-8. Milestone 7 — Solar clocks (mean solar, apparent solar, unequal hours)
-9. Milestone 8 — Snapshot export for Dagster (daily input artifact)
-10. Milestone 9 — Dagster project scaffold + daily run
-
----
-
-## Assumptions / Decisions log
-
-When new assumptions are made during implementation, append entries here:
-
-- Date:
-- Milestone:
-- Assumption:
-- Why needed:
-- Impact/risk:
-- Resolution (TBD / decided / update Requirements section above):
+## Skills
+A skill is a set of local instructions to follow that is stored in a `SKILL.md` file. Below is the list of skills that can be used. Each entry includes a name, description, and file path so you can open the source for full instructions when using a specific skill.
+### Available skills
+- skill-creator: Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Codex's capabilities with specialized knowledge, workflows, or tool integrations. (file: $CODEX_HOME/skills/.system/skill-creator/SKILL.md)
+- skill-installer: Install Codex skills into $CODEX_HOME/skills from a curated list or a GitHub repo path. Use when a user asks to list installable skills, install a curated skill, or install a skill from another repo (including private repos). (file: $CODEX_HOME/skills/.system/skill-installer/SKILL.md)
+  (Set `CODEX_HOME` during setup, or place skills under `./skills/` and adjust paths accordingly.)
+### How to use skills
+- Discovery: The list above is the skills available in this session (name + description + file path). Skill bodies live on disk at the listed paths.
+- Trigger rules: If the user names a skill (with `$SkillName` or plain text) OR the task clearly matches a skill's description shown above, you must use that skill for that turn. Multiple mentions mean use them all. Do not carry skills across turns unless re-mentioned.
+- Missing/blocked: If a named skill isn't in the list or the path can't be read, say so briefly and continue with the best fallback.
+- How to use a skill (progressive disclosure):
+  1) After deciding to use a skill, open its `SKILL.md`. Read only enough to follow the workflow.
+  2) When `SKILL.md` references relative paths (e.g., `scripts/foo.py`), resolve them relative to the skill directory listed above first, and only consider other paths if needed.
+  3) If `SKILL.md` points to extra folders such as `references/`, load only the specific files needed for the request; don't bulk-load everything.
+  4) If `scripts/` exist, prefer running or patching them instead of retyping large code blocks.
+  5) If `assets/` or templates exist, reuse them instead of recreating from scratch.
+- Coordination and sequencing:
+  - If multiple skills apply, choose the minimal set that covers the request and state the order you'll use them.
+  - Announce which skill(s) you're using and why (one short line). If you skip an obvious skill, say why.
+- Context hygiene:
+  - Keep context small: summarize long sections instead of pasting them; only load extra files when needed.
+  - Avoid deep reference-chasing: prefer opening only files directly linked from `SKILL.md` unless you're blocked.
+  - When variants exist (frameworks, providers, domains), pick only the relevant reference file(s) and note that choice.
+- Safety and fallback: If a skill can't be applied cleanly (missing files, unclear instructions), state the issue, pick the next-best approach, and continue.
