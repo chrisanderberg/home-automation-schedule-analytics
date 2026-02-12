@@ -196,6 +196,9 @@ func sanitizeNameComponent(value string) (string, error) {
 	if value == "" {
 		return "", fmt.Errorf("invalid snapshot component: empty")
 	}
+	if value == "." || value == ".." {
+		return "", fmt.Errorf("invalid snapshot component: path traversal not allowed")
+	}
 	if filepath.Base(value) != value {
 		return "", fmt.Errorf("invalid snapshot component: path traversal not allowed")
 	}

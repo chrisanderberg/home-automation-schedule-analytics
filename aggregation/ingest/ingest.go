@@ -69,7 +69,7 @@ func IngestHolding(ctx context.Context, db *sql.DB, cfg Config, input HoldingInp
 		updateErr := applyHoldingQuarter(ctx, tx, key, control.NumStates, input.State, span.StartMs, span.EndMs, loc)
 		if updateErr != nil {
 			if IsValidationError(updateErr) {
-				return fmt.Errorf("%w: %w", ErrValidation, updateErr)
+				return updateErr
 			}
 			return updateErr
 		}
