@@ -148,6 +148,20 @@ func TestSnapshotEndpointRejectsOutputPathOverride(t *testing.T) {
 	}
 }
 
+func TestMainAPIHasNoResetEndpoint(t *testing.T) {
+	db := openTestDB(t)
+	defer db.Close()
+
+	srv := NewServer(db, ingest.Config{TimeZone: "UTC"})
+	req := httptest.NewRequest(http.MethodPost, "/v1/reset", bytes.NewReader([]byte(`{}`)))
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d", w.Code)
+	}
+}
+
 func openTestDB(t *testing.T) *sql.DB {
 	t.Helper()
 	db, err := storage.Open(":memory:")

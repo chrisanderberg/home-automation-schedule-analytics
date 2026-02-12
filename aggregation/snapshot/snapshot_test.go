@@ -98,3 +98,36 @@ func TestDefaultSnapshotPathUsesDataSnapshotsDir(t *testing.T) {
 		t.Fatalf("snapshot name should end with .sqlite: %s", name)
 	}
 }
+
+func TestExportForTestUsesDeterministicTestPath(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer db.Close()
+	if err := storage.InitSchema(ctx, db); err != nil {
+		t.Fatalf("init schema: %v", err)
+	}
+
+	outputDir := t.TempDir()
+	prevWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	if err := os.Chdir(outputDir); err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chdir(prevWD)
+	})
+
+	snapshotPath, err := ExportForTest(ctx, db, "kitchen-test", "case-1")
+	if err != nil {
+		t.Fatalf("export snapshot for test: %v", err)
+	}
+	wantSuffix := filepath.Join("test-data", "snapshots", "kitchen-test-case-1-snapshot.sqlite")
+	if !strings.HasSuffix(snapshotPath, wantSuffix) {
+		t.Fatalf("snapshot path mismatch: got %s want suffix %s", snapshotPath, wantSuffix)
+	}
+}

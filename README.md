@@ -14,6 +14,14 @@ go test ./...
 
 The live aggregation DB defaults to `/aggregation/data/data.sqlite`.
 Snapshots are exported under `/aggregation/data/snapshots` with timestamped filenames.
+The binary serves two APIs:
+- Main API on `:8080` (fixed runtime paths under `data/`).
+- Testing API on `:8081` (isolated runtime paths under `test-data/`).
+
+Testing API payloads include `testName` (slug), and snapshot payloads include
+`snapshotName` (slug). Testing DB/snapshot files are named:
+- `test-data/<testName>-test-data.sqlite`
+- `test-data/snapshots/<testName>-<snapshotName>-snapshot.sqlite`
 
 ## Analytics
 From `/analytics`:

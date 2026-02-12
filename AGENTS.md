@@ -181,6 +181,12 @@ Runtime file locations:
 - The `/aggregation/snapshot` folder is code-only (snapshot creation/management logic), not a
   destination for generated snapshot files.
 - Runtime file locations are fixed and not user-configurable via API request payloads, flags, or env vars.
+- Testing runtime data is isolated under `/aggregation/test-data`.
+- Testing DB files are named `/aggregation/test-data/<testName>-test-data.sqlite`.
+- Testing snapshot files are named
+  `/aggregation/test-data/snapshots/<testName>-<snapshotName>-snapshot.sqlite`.
+- `testName` and `snapshotName` use lowercase slugs only:
+  `^[a-z0-9]+(?:-[a-z0-9]+)*$`.
 
 ### Dense blob layout (canonical)
 Constants:
@@ -242,6 +248,28 @@ Snapshot export convention:
 - Snapshot filenames include a timestamp (date/time) to enable ordering.
 - Snapshot filenames keep the existing `snapshot` prefix followed by a timestamp.
 
+Testing snapshot convention:
+- Testing snapshots are on-demand only (not scheduled).
+- Testing snapshot exports overwrite existing files with the same
+  `<testName>-<snapshotName>-snapshot.sqlite` name.
+
+### API topology (aggregation service)
+- One binary serves two HTTP APIs in parallel:
+  - Main API on port `8080` (application layer).
+  - Testing API on port `8081` (internal/testing only).
+- Main and testing APIs share the same endpoint paths for ingestion and snapshots:
+  - `POST /v1/holding-intervals`
+  - `POST /v1/transitions`
+  - `POST /v1/snapshots`
+- Main and testing APIs must use the same aggregation logic implementation for
+  holding and transition ingestion.
+- Testing API adds `POST /v1/reset` (testing-only). No reset endpoint exists on the main API.
+- Main API payloads do not accept path/database overrides.
+- Testing API payloads include `testName` for all ingestion/snapshot requests, and
+  include `snapshotName` for snapshot requests.
+- Testing ingestion appends/aggregates into existing test DB files (no implicit reset).
+- Testing data paths must never touch main data paths.
+
 ### Hypothesis (analytics intent)
 For a given control and time-of-week (per clock), multiple automation models may
 have been active historically. The hypothesis is:
@@ -282,6 +310,8 @@ Milestones are implemented using the two-step rule in Instructions.
 10. Milestone 9 — Dagster project scaffold + daily run
 11. Milestone 10 — REST API scaffold + ingestion endpoints
 12. Milestone 11 — Storage path migration + Dagster path alignment (`data/data.sqlite` and `data/snapshots`)
+13. Milestone 12 — Dual-port API topology + isolated testing API (`:8080` main, `:8081` testing)
+14. Milestone 13 — Testing data contract (`testName`/`snapshotName` slug validation, per-test DB/snapshot naming, testing-only reset)
 
 ---
 

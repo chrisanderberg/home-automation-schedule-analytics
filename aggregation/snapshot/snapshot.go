@@ -13,6 +13,15 @@ import (
 
 func Export(ctx context.Context, db *sql.DB) (string, error) {
 	outputPath := defaultSnapshotPath()
+	return exportToPath(ctx, db, outputPath)
+}
+
+func ExportForTest(ctx context.Context, db *sql.DB, testName string, snapshotName string) (string, error) {
+	outputPath := testSnapshotPath(testName, snapshotName)
+	return exportToPath(ctx, db, outputPath)
+}
+
+func exportToPath(ctx context.Context, db *sql.DB, outputPath string) (string, error) {
 	outputPath, err := filepath.Abs(outputPath)
 	if err != nil {
 		return "", err
@@ -42,6 +51,12 @@ func Export(ctx context.Context, db *sql.DB) (string, error) {
 func defaultSnapshotPath() string {
 	dir := filepath.Join("data", "snapshots")
 	name := fmt.Sprintf("snapshot-%s.sqlite", time.Now().UTC().Format("20060102-150405"))
+	return filepath.Join(dir, name)
+}
+
+func testSnapshotPath(testName string, snapshotName string) string {
+	dir := filepath.Join("test-data", "snapshots")
+	name := fmt.Sprintf("%s-%s-snapshot.sqlite", testName, snapshotName)
 	return filepath.Join(dir, name)
 }
 

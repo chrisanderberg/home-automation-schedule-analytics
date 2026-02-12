@@ -15,7 +15,8 @@ import (
 
 func main() {
 	var (
-		addr     = flag.String("addr", ":8080", "HTTP listen address")
+		addr     = flag.String("addr", ":8080", "main HTTP listen address")
+		testAddr = flag.String("test-addr", ":8081", "testing HTTP listen address")
 		timeZone = flag.String("tz", getenvDefault("HAA_TIMEZONE", "UTC"), "IANA timezone")
 		lat      = flag.Float64("lat", getenvFloatDefault("HAA_LATITUDE", 0), "Latitude")
 		lon      = flag.Float64("lon", getenvFloatDefault("HAA_LONGITUDE", 0), "Longitude")
@@ -34,10 +35,20 @@ func main() {
 		log.Fatalf("init schema: %v", err)
 	}
 
-	srv := api.NewServer(db, cfg)
+	mainSrv := api.NewServer(db, cfg)
+	testSrv := api.NewTestingServer(cfg)
 
-	log.Printf("listening on %s", *addr)
-	if err := http.ListenAndServe(*addr, srv); err != nil {
+	errCh := make(chan error, 2)
+	log.Printf("main API listening on %s", *addr)
+	go func() {
+		errCh <- http.ListenAndServe(*addr, mainSrv)
+	}()
+	log.Printf("testing API listening on %s", *testAddr)
+	go func() {
+		errCh <- http.ListenAndServe(*testAddr, testSrv)
+	}()
+
+	if err := <-errCh; err != nil {
 		log.Fatalf("listen: %v", err)
 	}
 }
