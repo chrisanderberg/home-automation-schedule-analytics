@@ -81,6 +81,9 @@ func TestFindSearchesUpwardToMarker(t *testing.T) {
 
 func TestFindReturnsFalseWithoutMarker(t *testing.T) {
 	tmp := t.TempDir()
+	if hasRootMarkerInAncestors(tmp) {
+		t.Skipf("environment has reporoot marker in temp-dir ancestors: %q", tmp)
+	}
 	start := filepath.Join(tmp, "a", "b")
 	if err := os.MkdirAll(start, 0o755); err != nil {
 		t.Fatalf("mkdir start: %v", err)
@@ -143,4 +146,18 @@ func isSymlinkUnsupported(err error) bool {
 	}
 	s := strings.ToLower(err.Error())
 	return strings.Contains(s, "not permitted") || strings.Contains(s, "operation not supported")
+}
+
+func hasRootMarkerInAncestors(start string) bool {
+	cur := filepath.Clean(start)
+	for {
+		if Is(cur) {
+			return true
+		}
+		parent := filepath.Dir(cur)
+		if parent == cur {
+			return false
+		}
+		cur = parent
+	}
 }

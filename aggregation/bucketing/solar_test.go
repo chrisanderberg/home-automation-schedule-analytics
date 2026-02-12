@@ -2,6 +2,7 @@ package bucketing
 
 import (
 	"errors"
+	"math"
 	"testing"
 	"time"
 )
@@ -107,6 +108,22 @@ func TestSolarCoordinateValidation(t *testing.T) {
 			}
 		})
 	}
+	for _, tc := range bucketChecks {
+		t.Run("bucket_"+tc.name+"_nan_lat", func(t *testing.T) {
+			_, err := tc.fn(timestamp, math.NaN(), 0)
+			if !errors.Is(err, ErrInvalidCoordinates) {
+				t.Fatalf("expected ErrInvalidCoordinates for NaN lat, got %v", err)
+			}
+		})
+	}
+	for _, tc := range bucketChecks {
+		t.Run("bucket_"+tc.name+"_inf_lon", func(t *testing.T) {
+			_, err := tc.fn(timestamp, 0, math.Inf(1))
+			if !errors.Is(err, ErrInvalidCoordinates) {
+				t.Fatalf("expected ErrInvalidCoordinates for +Inf lon, got %v", err)
+			}
+		})
+	}
 
 	splitChecks := []struct {
 		name string
@@ -137,6 +154,22 @@ func TestSolarCoordinateValidation(t *testing.T) {
 			_, err := tc.fn(timestamp, timestamp+60_000, 90, -180)
 			if errors.Is(err, ErrInvalidCoordinates) {
 				t.Fatalf("expected boundary coordinates to be allowed, got %v", err)
+			}
+		})
+	}
+	for _, tc := range splitChecks {
+		t.Run("split_"+tc.name+"_nan_lat", func(t *testing.T) {
+			_, err := tc.fn(timestamp, timestamp+60_000, math.NaN(), 0)
+			if !errors.Is(err, ErrInvalidCoordinates) {
+				t.Fatalf("expected ErrInvalidCoordinates for NaN lat, got %v", err)
+			}
+		})
+	}
+	for _, tc := range splitChecks {
+		t.Run("split_"+tc.name+"_inf_lon", func(t *testing.T) {
+			_, err := tc.fn(timestamp, timestamp+60_000, 0, math.Inf(-1))
+			if !errors.Is(err, ErrInvalidCoordinates) {
+				t.Fatalf("expected ErrInvalidCoordinates for -Inf lon, got %v", err)
 			}
 		})
 	}
