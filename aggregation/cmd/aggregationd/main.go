@@ -18,9 +18,17 @@ import (
 )
 
 func main() {
+	if err := run(); err != nil {
+		log.Printf("aggregationd failed: %v", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	var (
 		addr     = flag.String("addr", ":8080", "main HTTP listen address")
 		testAddr = flag.String("test-addr", ":8081", "testing HTTP listen address")
+		dbPath   = flag.String("db-path", getenvDefault("HAA_DB_PATH", "../data/data.sqlite"), "SQLite DB path")
 		timeZone = flag.String("tz", getenvDefault("HAA_TIMEZONE", "UTC"), "IANA timezone")
 		lat      = flag.Float64("lat", getenvFloatDefault("HAA_LATITUDE", 0), "Latitude")
 		lon      = flag.Float64("lon", getenvFloatDefault("HAA_LONGITUDE", 0), "Longitude")
@@ -29,20 +37,32 @@ func main() {
 
 	cfg := ingest.Config{TimeZone: *timeZone, Latitude: *lat, Longitude: *lon}
 
-	db, err := storage.Open("../data/data.sqlite")
+	db, err := storage.Open(*dbPath)
 	if err != nil {
-		log.Fatalf("open db: %v", err)
+		return fmt.Errorf("open db: %w", err)
 	}
 	defer db.Close()
 
 	if err := storage.InitSchema(context.Background(), db); err != nil {
-		log.Fatalf("init schema: %v", err)
+		return fmt.Errorf("init schema: %w", err)
 	}
 
 	mainSrv := api.NewServer(db, cfg)
 	testSrv := api.NewTestingServer(cfg)
-	mainHTTP := &http.Server{Addr: *addr, Handler: mainSrv}
-	testHTTP := &http.Server{Addr: *testAddr, Handler: testSrv}
+	mainHTTP := &http.Server{
+		Addr:         *addr,
+		Handler:      mainSrv,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+	testHTTP := &http.Server{
+		Addr:         *testAddr,
+		Handler:      testSrv,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
 
 	runCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -72,17 +92,21 @@ func main() {
 	}
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
 	if err := shutdownServer(shutdownCtx, mainHTTP, "main"); err != nil {
 		log.Printf("main shutdown error: %v", err)
 	}
-	if err := shutdownServer(shutdownCtx, testHTTP, "testing"); err != nil {
+	cancel()
+
+	testShutdownCtx, testCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	if err := shutdownServer(testShutdownCtx, testHTTP, "testing"); err != nil {
 		log.Printf("testing shutdown error: %v", err)
 	}
+	testCancel()
 
 	if runErr != nil {
-		log.Fatalf("listen: %v", runErr)
+		return fmt.Errorf("listen: %w", runErr)
 	}
+	return nil
 }
 
 // getenvDefault returns env value when set, otherwise def.

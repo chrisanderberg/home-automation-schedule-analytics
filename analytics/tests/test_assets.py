@@ -1,6 +1,7 @@
 import os
 import sys
 import tempfile
+import time
 import types
 import unittest
 from pathlib import Path
@@ -13,7 +14,7 @@ dagster_stub.SensorEvaluationContext = object
 dagster_stub.SkipReason = object
 dagster_stub.asset = lambda fn: fn
 dagster_stub.sensor = lambda **_kwargs: (lambda fn: fn)
-sys.modules.setdefault("dagster", dagster_stub)
+sys.modules["dagster"] = dagster_stub
 
 from analytics.assets import _latest_snapshot_path_in_dir, _snapshot_root, _testing_snapshot_root
 
@@ -31,8 +32,9 @@ class LatestSnapshotPathTests(unittest.TestCase):
             first.write_bytes(b"a")
             second.write_bytes(b"b")
 
-            os.utime(first, (1, 1))
-            os.utime(second, (2, 2))
+            base = time.time()
+            os.utime(first, (base, base))
+            os.utime(second, (base + 1, base + 1))
             self.assertEqual(_latest_snapshot_path_in_dir(root), second)
 
     def test_fixed_testing_snapshot_dir_is_test_data_snapshots(self):

@@ -154,16 +154,7 @@ func TestSnapshotEndpoint(t *testing.T) {
 	srv := NewServer(db, ingest.Config{TimeZone: "UTC"})
 
 	outputDir := t.TempDir()
-	prevWD, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("getwd: %v", err)
-	}
-	if err := os.Chdir(outputDir); err != nil {
-		t.Fatalf("chdir: %v", err)
-	}
-	t.Cleanup(func() {
-		_ = os.Chdir(prevWD)
-	})
+	t.Setenv("SNAPSHOT_DIR", filepath.Join(outputDir, "data", "snapshots"))
 
 	req := httptest.NewRequest(http.MethodPost, "/v1/snapshots", nil)
 	w := httptest.NewRecorder()

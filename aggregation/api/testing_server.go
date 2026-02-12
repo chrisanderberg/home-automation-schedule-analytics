@@ -159,7 +159,8 @@ func (s *TestingServer) handleHolding(w http.ResponseWriter, r *http.Request) {
 
 	db, err := openTestingDB(r.Context(), req.TestName)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		log.Printf("testing holding open db failed for %q: %v", req.TestName, err)
+		writeError(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
 	defer db.Close()
@@ -200,7 +201,8 @@ func (s *TestingServer) handleTransitions(w http.ResponseWriter, r *http.Request
 
 	db, err := openTestingDB(r.Context(), req.TestName)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		log.Printf("testing transitions open db failed for %q: %v", req.TestName, err)
+		writeError(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
 	defer db.Close()

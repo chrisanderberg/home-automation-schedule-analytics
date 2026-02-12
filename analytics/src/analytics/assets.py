@@ -188,10 +188,6 @@ def testing_api_snapshot_validation(context: AssetExecutionContext) -> Materiali
             {"testName": test_name, "snapshotName": snapshot_name},
         )
         _require_status(status, 200, "snapshot export", payload)
-    except urllib.error.HTTPError as exc:
-        message = f"testing API request failed at {base_url}: status={exc.code} reason={exc.reason} error={exc}"
-        context.log.warning(message)
-        return MaterializeResult(metadata={"snapshot_missing": True, "error": message})
     except urllib.error.URLError as exc:
         message = f"testing API unavailable at {base_url}: {exc}"
         context.log.warning(message)

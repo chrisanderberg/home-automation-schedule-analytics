@@ -27,7 +27,7 @@ This file is canonical for Milestone 16 execution details.
 - [ ] No unapproved TODO sentinels in production code.
 
 ## Non-goals
-- [ ] No Dagster report orchestration or artifact packaging changes in this milestone.
+- No Dagster report orchestration or artifact packaging changes in this milestone.
 
 ## Notes
 - Include reviewer-oriented comments for numerical invariants and convergence assumptions.

@@ -1,7 +1,7 @@
 # INVARIANTS.md
 
 ## Canonical scope
-This file is canonical for cross-cutting invariants that must hold across implementation.
+This file is canonical for cross-cutting invariants that must hold across implementations.
 
 ## Time and bucket invariants
 - Holding interval semantics: `[startTimeMs, endTimeMs)`.

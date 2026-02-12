@@ -16,7 +16,7 @@ func BucketAtUTC(timestampMs int64) (int, error) {
 // BucketAtLocal maps a timestamp into buckets using the configured local zone.
 func BucketAtLocal(timestampMs int64, loc *time.Location) (int, error) {
 	if loc == nil {
-		return 0, ErrInvalidTimestamp
+		return 0, ErrNilLocation
 	}
 	t := time.UnixMilli(timestampMs).In(loc)
 	return bucketFromTime(t), nil
@@ -53,7 +53,7 @@ func SplitIntervalUTC(startMs, endMs int64) ([]BucketSpan, error) {
 // coordinates while still measuring elapsed real milliseconds.
 func SplitIntervalLocal(startMs, endMs int64, loc *time.Location) ([]BucketSpan, error) {
 	if loc == nil {
-		return nil, ErrInvalidTimestamp
+		return nil, ErrNilLocation
 	}
 	if endMs <= startMs {
 		return nil, ErrInvalidInterval

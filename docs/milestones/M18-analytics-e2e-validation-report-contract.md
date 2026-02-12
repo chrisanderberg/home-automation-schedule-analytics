@@ -27,7 +27,7 @@ This file is canonical for Milestone 18 execution details.
 - [ ] No unapproved TODO sentinels in production code.
 
 ## Non-goals
-- [ ] No changes to aggregation ingestion/storage semantics.
+- No changes to aggregation ingestion/storage semantics.
 
 ## Notes
 - Keep contract tests strict enough to catch accidental schema drift.
