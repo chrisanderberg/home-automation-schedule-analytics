@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 
 	_ "modernc.org/sqlite"
 
@@ -191,7 +192,17 @@ func updateAggregateWithQueryExec(
 	var blobBytes []byte
 	switch err := row.Scan(&blobBytes); err {
 	case nil:
-		// use existing blob
+		expectedLen := numStates * numStates * blob.GroupSize * 8
+		if len(blobBytes) != expectedLen {
+			return fmt.Errorf(
+				"aggregate blob size mismatch for control_id=%q model_id=%q quarter_index=%d: got %d bytes, expected %d",
+				key.ControlID,
+				key.ModelID,
+				key.QuarterIndex,
+				len(blobBytes),
+				expectedLen,
+			)
+		}
 	case sql.ErrNoRows:
 		b, err := blob.NewBlob(numStates)
 		if err != nil {

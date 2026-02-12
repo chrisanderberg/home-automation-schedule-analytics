@@ -19,13 +19,15 @@ This file is canonical for Milestone 08 execution details.
   - ../../AGENTS.md
 
 ## Acceptance checklist
-- [ ] Scaffolding + tests step complete.
-- [ ] Implementation step complete.
-- [ ] `go test ./...` passes.
-- [ ] No unapproved TODO sentinels in production code.
+- [x] Scaffolding + tests step complete.
+- [x] Implementation step complete.
+- [x] `go test ./...` passes.
+- [x] No unapproved TODO sentinels in production code.
 
 ## Non-goals
-- [ ] No out-of-scope items from requirements were added.
+- [x] No out-of-scope items from requirements were added.
 
 ## Notes
-- Fill this section with milestone-specific edge cases, fixtures, and review notes.
+- Edge cases covered: snapshot export path creation under `data/snapshots` and quarter-partitioned aggregate blob persistence into SQLite snapshot artifacts.
+- Fixtures/contracts covered: deterministic snapshot naming and artifact location compatibility used by downstream Dagster assets.
+- Review notes: implementation remains within Milestone 08 scope (daily input artifact export only), without adding orchestration semantics that belong to later milestones.

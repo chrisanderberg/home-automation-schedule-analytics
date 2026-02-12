@@ -94,7 +94,10 @@ def _post_json(url: str, payload: dict) -> tuple[int, dict]:
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
             body = resp.read().decode("utf-8")
-            parsed = json.loads(body) if body else {}
+            try:
+                parsed = json.loads(body) if body else {}
+            except json.JSONDecodeError:
+                parsed = {"error": body} if body else {}
             return resp.status, parsed
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8") if exc.fp is not None else ""

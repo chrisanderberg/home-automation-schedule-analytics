@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"sync"
 	"testing"
 
@@ -146,5 +147,35 @@ func TestAggregateConcurrentUpdates(t *testing.T) {
 	}
 	if v != 7 {
 		t.Fatalf("concurrent update mismatch: got %d want %d", v, 7)
+	}
+}
+
+// TestUpdateAggregateRejectsMismatchedBlobSize verifies updates fail fast when
+// stored blob bytes do not match the expected shape for numStates.
+func TestUpdateAggregateRejectsMismatchedBlobSize(t *testing.T) {
+	db := openTestDB(t)
+	defer db.Close()
+
+	key := AggregateKey{ControlID: "c1", ModelID: "m1", QuarterIndex: 1}
+	_, err := db.ExecContext(
+		context.Background(),
+		`INSERT INTO aggregates (control_id, model_id, quarter_index, blob) VALUES (?, ?, ?, ?)`,
+		key.ControlID,
+		key.ModelID,
+		key.QuarterIndex,
+		[]byte{1, 2, 3},
+	)
+	if err != nil {
+		t.Fatalf("seed malformed aggregate: %v", err)
+	}
+
+	err = UpdateAggregate(context.Background(), db, key, 2, func(data []byte) error {
+		return nil
+	})
+	if err == nil {
+		t.Fatal("expected mismatched blob size error")
+	}
+	if !strings.Contains(err.Error(), "aggregate blob size mismatch") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }

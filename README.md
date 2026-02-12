@@ -12,6 +12,7 @@ Monorepo for a home automation aggregation service and analytics reporting.
 - Aggregation requirements: `AGGREGATION_REQUIREMENTS.md`
 - Analytics requirements: `ANALYTICS_REQUIREMENTS.md`
 - Milestone order/status: `PLAN.md`
+- Decisions: `DECISIONS.md`
 - Current execution context: `CURRENT.md`
 - Durable progress log: `STATUS.md`
 - Architecture map: `ARCHITECTURE.md`
