@@ -40,8 +40,8 @@ Expected result:
 - All analytics unit tests pass.
 
 ## Test-data naming conventions
-- Testing DB path: `/aggregation/test-data/<testName>-test-data.sqlite`
-- Testing snapshot path: `/aggregation/test-data/snapshots/<testName>-<snapshotName>-snapshot.sqlite`
+- Testing DB path: `test-data/<testName>-test-data.sqlite`
+- Testing snapshot path: `test-data/snapshots/<testName>-<snapshotName>-snapshot.sqlite`
 - Slug format for `testName` and `snapshotName`: `^[a-z0-9]+(?:-[a-z0-9]+)*$`
 
 ## Notes

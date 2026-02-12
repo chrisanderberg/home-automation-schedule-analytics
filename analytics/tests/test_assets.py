@@ -15,12 +15,12 @@ dagster_stub.asset = lambda fn: fn
 dagster_stub.sensor = lambda **_kwargs: (lambda fn: fn)
 sys.modules.setdefault("dagster", dagster_stub)
 
-from analytics.assets import _latest_snapshot_path_in_dir, _snapshot_root
+from analytics.assets import _latest_snapshot_path_in_dir, _snapshot_root, _testing_snapshot_root
 
 
 class LatestSnapshotPathTests(unittest.TestCase):
     def test_fixed_snapshot_dir_is_data_snapshots(self):
-        expected = _repository_root_for_test() / "aggregation" / "data" / "snapshots"
+        expected = _repository_root_for_test() / "data" / "snapshots"
         self.assertEqual(_snapshot_root(), expected)
 
     def test_selects_newest_sqlite_file(self):
@@ -35,9 +35,13 @@ class LatestSnapshotPathTests(unittest.TestCase):
             os.utime(second, (2, 2))
             self.assertEqual(_latest_snapshot_path_in_dir(root), second)
 
+    def test_fixed_testing_snapshot_dir_is_test_data_snapshots(self):
+        expected = _repository_root_for_test() / "test-data" / "snapshots"
+        self.assertEqual(_testing_snapshot_root(), expected)
+
 
 def _snapshot_path_root_for_test() -> Path:
-    return _repository_root_for_test() / "aggregation" / "data" / "snapshots"
+    return _repository_root_for_test() / "data" / "snapshots"
 
 
 def _repository_root_for_test() -> Path:

@@ -47,6 +47,7 @@
 ### Shared storage/snapshot contract
 - SQLite is the canonical aggregate storage format.
 - Analytics consumes snapshot SQLite files, not the live DB.
+- Dagster must not read or mutate live aggregation DB files (`data/data.sqlite`, `test-data/*-test-data.sqlite`).
 - Runtime path conventions and API contract details are defined in:
   - `AGGREGATION_REQUIREMENTS.md`
   - `API_CONTRACTS.md`

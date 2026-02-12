@@ -94,13 +94,13 @@ The aggregation service stores:
 SQLite is the canonical storage format for aggregates.
 
 Runtime file locations:
-- Live DB path fixed at `/aggregation/data/data.sqlite`.
-- Snapshot files are runtime artifacts under `/aggregation/data/snapshots`.
-- `/aggregation/snapshot` is code-only (snapshot logic), not a destination for generated files.
+- Live DB path fixed at `data/data.sqlite`.
+- Main snapshot files are shared runtime artifacts under `data/snapshots`.
+- `aggregation/snapshot` is code-only (snapshot logic), not a destination for generated files.
 - Runtime file locations are fixed and not user-configurable via API payloads, flags, or env vars.
-- Testing runtime data is isolated under `/aggregation/test-data`.
-- Testing DB files are named `/aggregation/test-data/<testName>-test-data.sqlite`.
-- Testing snapshot files are named `/aggregation/test-data/snapshots/<testName>-<snapshotName>-snapshot.sqlite`.
+- Testing runtime DB data is isolated under `test-data`.
+- Testing DB files are named `test-data/<testName>-test-data.sqlite`.
+- Testing snapshot files are shared artifacts under `test-data/snapshots/<testName>-<snapshotName>-snapshot.sqlite`.
 - `testName` and `snapshotName` use lowercase slugs only: `^[a-z0-9]+(?:-[a-z0-9]+)*$`.
 
 ### Dense blob layout (canonical)
@@ -150,13 +150,14 @@ Numeric encoding decision:
 - Daily cadence (about once per day) is the default.
 
 Snapshot discovery/export convention:
-- Analytics reads newest `*.sqlite` in `/aggregation/data/snapshots` (latest by modification time).
-- Snapshots are written under `/aggregation/data/snapshots`.
+- Analytics reads newest `*.sqlite` in `data/snapshots` (latest by modification time).
+- Main snapshots are written under `data/snapshots`.
 - Snapshot filenames include a timestamp for ordering.
 - Snapshot filenames keep the `snapshot` prefix followed by a timestamp.
 
 Testing snapshot convention:
 - Testing snapshots are on-demand only (not scheduled).
+- Testing snapshots are written under `test-data/snapshots`.
 - Testing snapshot exports overwrite existing files with the same `<testName>-<snapshotName>-snapshot.sqlite` name.
 
 ### API topology (aggregation service)
@@ -164,13 +165,14 @@ Testing snapshot convention:
   - Main API on port `8080` (application layer)
   - Testing API on port `8081` (internal/testing only)
 - Main and testing APIs share endpoint paths for ingestion and snapshots:
+  - `POST /v1/controls`
   - `POST /v1/holding-intervals`
   - `POST /v1/transitions`
   - `POST /v1/snapshots`
-- Main and testing APIs must use the same aggregation logic implementation for holding/transition ingestion.
+- Main and testing APIs must use the same aggregation logic implementation for control persistence and holding/transition ingestion.
 - Testing API adds `POST /v1/reset` (testing-only). No reset endpoint exists on the main API.
 - Main API payloads do not accept path/database overrides.
-- Testing API payloads include `testName` for all ingestion/snapshot requests, and include `snapshotName` for snapshot requests.
+- Testing API payloads include `testName` for all control/ingestion/snapshot requests, and include `snapshotName` for snapshot requests.
 - Testing ingestion appends/aggregates into existing test DB files (no implicit reset).
 - Testing data paths must never touch main data paths.
 

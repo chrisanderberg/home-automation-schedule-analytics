@@ -17,7 +17,7 @@ This file is canonical for system structure and component interaction.
 4. Aggregates are updated in dense blobs via `/aggregation/blob`.
 5. Blobs and control metadata are persisted via `/aggregation/storage`.
 6. `/aggregation/snapshot` exports SQLite snapshots for Dagster.
-7. `/analytics` consumes newest snapshot from `/aggregation/data/snapshots`.
+7. `/analytics` consumes newest snapshot from `data/snapshots`.
 8. Analytics decodes dense blobs into sufficient statistics.
 9. Analytics applies KDE smoothing across cyclic time-of-week buckets.
 10. Analytics estimates CTMC rates and stationary distributions per control/time slice.
@@ -36,7 +36,7 @@ This file is canonical for system structure and component interaction.
 - Testing API adds `POST /v1/reset` only.
 
 ## Runtime storage paths
-- Main DB: `/aggregation/data/data.sqlite`
-- Main snapshots: `/aggregation/data/snapshots/*.sqlite`
-- Testing DBs: `/aggregation/test-data/<testName>-test-data.sqlite`
-- Testing snapshots: `/aggregation/test-data/snapshots/<testName>-<snapshotName>-snapshot.sqlite`
+- Main DB: `data/data.sqlite`
+- Main snapshots: `data/snapshots/*.sqlite`
+- Testing DBs: `test-data/<testName>-test-data.sqlite`
+- Testing snapshots: `test-data/snapshots/<testName>-<snapshotName>-snapshot.sqlite`

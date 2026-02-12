@@ -32,6 +32,31 @@ func TestHealth(t *testing.T) {
 	}
 }
 
+// TestControlsEndpoint verifies valid control payloads are accepted by the
+// main API and persisted for subsequent ingestion validation.
+func TestControlsEndpoint(t *testing.T) {
+	db := openTestDB(t)
+	defer db.Close()
+
+	srv := NewServer(db, ingest.Config{TimeZone: "UTC"})
+	body := bytes.NewReader([]byte(`{"controlId":"c1","controlType":"discrete","numStates":2}`))
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/controls", body)
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+
+	if w.Code != http.StatusAccepted {
+		t.Fatalf("expected 202, got %d body=%s", w.Code, w.Body.String())
+	}
+	control, err := storage.GetControl(context.Background(), db, "c1")
+	if err != nil {
+		t.Fatalf("get control: %v", err)
+	}
+	if control.ControlType != storage.ControlTypeDiscrete || control.NumStates != 2 {
+		t.Fatalf("control mismatch: %+v", control)
+	}
+}
+
 // TestHoldingEndpoint verifies valid holding payloads are accepted by the main
 // API and routed through shared ingestion logic.
 func TestHoldingEndpoint(t *testing.T) {
@@ -95,7 +120,7 @@ func TestTransitionEndpoint(t *testing.T) {
 }
 
 // TestSnapshotEndpoint verifies snapshot export succeeds from the main API and
-// returns a created snapshot path under data/snapshots.
+// returns a created snapshot path under ../data/snapshots.
 func TestSnapshotEndpoint(t *testing.T) {
 	db := openTestDB(t)
 	defer db.Close()
@@ -130,7 +155,7 @@ func TestSnapshotEndpoint(t *testing.T) {
 	if snapshotPath == "" {
 		t.Fatalf("missing snapshotPath in response: %s", w.Body.String())
 	}
-	wantDir := filepath.Join(outputDir, "data", "snapshots")
+	wantDir := filepath.Clean(filepath.Join(outputDir, "..", "data", "snapshots"))
 	gotDir := filepath.Dir(snapshotPath)
 	gotDirEval, err := filepath.EvalSymlinks(gotDir)
 	if err == nil {

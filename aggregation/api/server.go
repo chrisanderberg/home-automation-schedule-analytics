@@ -10,6 +10,7 @@ import (
 
 	"home-automation-analytics/aggregation/ingest"
 	"home-automation-analytics/aggregation/snapshot"
+	"home-automation-analytics/aggregation/storage"
 )
 
 type Server struct {
@@ -32,6 +33,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // routes registers all main API endpoints.
 func (s *Server) routes() {
 	s.mux.HandleFunc("/v1/health", s.handleHealth)
+	s.mux.HandleFunc("/v1/controls", s.handleControls)
 	s.mux.HandleFunc("/v1/holding-intervals", s.handleHolding)
 	s.mux.HandleFunc("/v1/transitions", s.handleTransitions)
 	s.mux.HandleFunc("/v1/snapshots", s.handleSnapshots)
@@ -43,6 +45,51 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+type controlRequest struct {
+	ControlID   string   `json:"controlId"`
+	ControlType string   `json:"controlType"`
+	NumStates   int      `json:"numStates"`
+	StateLabels []string `json:"stateLabels"`
+}
+
+// handleControls upserts control metadata required by ingestion endpoints.
+func (s *Server) handleControls(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	var req controlRequest
+	if err := decodeStrictJSON(r.Body, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	if req.ControlID == "" {
+		writeError(w, http.StatusBadRequest, "invalid controlId")
+		return
+	}
+	if req.NumStates < 2 || req.NumStates > 10 {
+		writeError(w, http.StatusBadRequest, "invalid numStates")
+		return
+	}
+	if req.ControlType != string(storage.ControlTypeDiscrete) && req.ControlType != string(storage.ControlTypeSlider) {
+		writeError(w, http.StatusBadRequest, "invalid controlType")
+		return
+	}
+
+	control := storage.Control{
+		ControlID:   req.ControlID,
+		ControlType: storage.ControlType(req.ControlType),
+		NumStates:   req.NumStates,
+		StateLabels: req.StateLabels,
+	}
+	if err := storage.UpsertControl(r.Context(), s.db, control); err != nil {
+		log.Printf("handleControls upsert failed: %v", err)
+		writeError(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	writeJSON(w, http.StatusAccepted, map[string]string{"status": "accepted"})
 }
 
 // handleHolding decodes a main API holding request and forwards to ingestion.

@@ -29,7 +29,7 @@ func main() {
 
 	cfg := ingest.Config{TimeZone: *timeZone, Latitude: *lat, Longitude: *lon}
 
-	db, err := storage.Open("data/data.sqlite")
+	db, err := storage.Open("../data/data.sqlite")
 	if err != nil {
 		log.Fatalf("open db: %v", err)
 	}

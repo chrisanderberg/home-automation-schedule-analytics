@@ -42,7 +42,9 @@ This file is canonical for cross-cutting invariants that must hold across implem
   - `transIndex(from,to,c,b) = (N*G) + (transGroupIndex(from,to)*G) + (c*B) + b`
 
 ## Runtime path invariants
-- Main DB path fixed at `/aggregation/data/data.sqlite`.
-- Main snapshots under `/aggregation/data/snapshots`.
-- Testing data isolated under `/aggregation/test-data`.
+- Main DB path fixed at `data/data.sqlite`.
+- Main snapshots under `data/snapshots`.
+- Testing DB data isolated under `test-data`.
+- Testing snapshots under `test-data/snapshots`.
+- Dagster must not read or mutate live/testing DB files; it consumes snapshots only.
 - Testing names use lowercase slug format only.

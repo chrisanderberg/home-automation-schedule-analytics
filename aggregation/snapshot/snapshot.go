@@ -13,7 +13,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// Export writes a timestamped production snapshot under data/snapshots.
+// Export writes a timestamped production snapshot under ../data/snapshots.
 func Export(ctx context.Context, db *sql.DB) (string, error) {
 	outputPath := defaultSnapshotPath()
 	return exportToPath(ctx, db, outputPath)
@@ -87,14 +87,14 @@ func exportToPath(ctx context.Context, db *sql.DB, outputPath string) (_ string,
 
 // defaultSnapshotPath returns a timestamped runtime snapshot filename.
 func defaultSnapshotPath() string {
-	dir := filepath.Join("data", "snapshots")
+	dir := filepath.Join("..", "data", "snapshots")
 	name := fmt.Sprintf("snapshot-%s.sqlite", time.Now().UTC().Format("20060102-150405"))
 	return filepath.Join(dir, name)
 }
 
 // testSnapshotPath returns deterministic test snapshot path naming.
 func testSnapshotPath(testName string, snapshotName string) string {
-	dir := filepath.Join("test-data", "snapshots")
+	dir := filepath.Join("..", "test-data", "snapshots")
 	name := fmt.Sprintf("%s-%s-snapshot.sqlite", testName, snapshotName)
 	return filepath.Join(dir, name)
 }

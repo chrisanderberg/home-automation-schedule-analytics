@@ -20,9 +20,10 @@ For a given control and time-of-week (per clock), multiple automation models may
    occupancy may differ, but inferred preference (CTMC stationary distribution) should align for the same control/time bucket.
 
 ### Analytics input contract
-- Input source is a SQLite snapshot file under `/aggregation/data/snapshots`.
+- Input source is a SQLite snapshot file under `data/snapshots`.
 - Analytics reads the newest `*.sqlite` by modification time.
 - Analytics must not read from live DB paths.
+- Dagster must never read or write `data/data.sqlite` or `test-data/*-test-data.sqlite`.
 - Missing snapshots should produce a clear, non-crashing Dagster skip/warning path.
 
 ### Required pipeline stages

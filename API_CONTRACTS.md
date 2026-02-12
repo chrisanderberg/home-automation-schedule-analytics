@@ -8,12 +8,26 @@ This file is canonical for HTTP contract shape and endpoint behavior.
 - Testing API: `:8081`
 
 Shared endpoints on both APIs:
+- `POST /v1/controls`
 - `POST /v1/holding-intervals`
 - `POST /v1/transitions`
 - `POST /v1/snapshots`
 
 Testing-only endpoint:
 - `POST /v1/reset`
+
+## Control metadata upsert
+Endpoint:
+- `POST /v1/controls`
+
+Required fields:
+- `controlId`
+- `controlType` (`discrete` or `slider`)
+- `numStates` (`2..10`)
+
+Behavior:
+- Upserts control metadata by `controlId`.
+- Invalid payloads are rejected with clear errors.
 
 ## Holding interval ingestion
 Endpoint:
@@ -53,12 +67,12 @@ Endpoint:
 - `POST /v1/snapshots`
 
 Behavior:
-- Main API writes snapshot under `/aggregation/data/snapshots`.
-- Testing API writes under `/aggregation/test-data/snapshots`.
+- Main API writes snapshots under `data/snapshots`.
+- Testing API writes snapshots under `test-data/snapshots`.
 - Testing snapshot exports overwrite same-name files.
 
 ## Testing API payload extensions
-For all testing ingestion/snapshot requests:
+For all testing control/ingestion/snapshot requests:
 - `testName` is required.
 
 For testing snapshot requests:
@@ -70,3 +84,4 @@ Slug constraint for both:
 ## Non-configurable runtime paths
 - Main API payloads cannot override DB/snapshot runtime paths.
 - Testing requests cannot write to main runtime data paths.
+- Analytics/Dagster must consume snapshots only and must not read or mutate `data/data.sqlite` or `test-data/*-test-data.sqlite`.

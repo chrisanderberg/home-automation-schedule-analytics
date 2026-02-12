@@ -36,6 +36,7 @@ func (s *TestingServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // routes registers the testing API endpoints, including /v1/reset.
 func (s *TestingServer) routes() {
 	s.mux.HandleFunc("/v1/health", s.handleHealth)
+	s.mux.HandleFunc("/v1/controls", s.handleControls)
 	s.mux.HandleFunc("/v1/holding-intervals", s.handleHolding)
 	s.mux.HandleFunc("/v1/transitions", s.handleTransitions)
 	s.mux.HandleFunc("/v1/snapshots", s.handleSnapshots)
@@ -75,6 +76,62 @@ type testingSnapshotRequest struct {
 
 type testingResetRequest struct {
 	TestName string `json:"testName"`
+}
+
+type testingControlRequest struct {
+	TestName    string   `json:"testName"`
+	ControlID   string   `json:"controlId"`
+	ControlType string   `json:"controlType"`
+	NumStates   int      `json:"numStates"`
+	StateLabels []string `json:"stateLabels"`
+}
+
+func (s *TestingServer) handleControls(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	var req testingControlRequest
+	if err := decodeStrictJSON(r.Body, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	if !isValidSlug(req.TestName) {
+		writeError(w, http.StatusBadRequest, "invalid testName")
+		return
+	}
+	if req.ControlID == "" {
+		writeError(w, http.StatusBadRequest, "invalid controlId")
+		return
+	}
+	if req.NumStates < 2 || req.NumStates > 10 {
+		writeError(w, http.StatusBadRequest, "invalid numStates")
+		return
+	}
+	if req.ControlType != string(storage.ControlTypeDiscrete) && req.ControlType != string(storage.ControlTypeSlider) {
+		writeError(w, http.StatusBadRequest, "invalid controlType")
+		return
+	}
+
+	db, err := openTestingDB(r.Context(), req.TestName)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	defer db.Close()
+
+	control := storage.Control{
+		ControlID:   req.ControlID,
+		ControlType: storage.ControlType(req.ControlType),
+		NumStates:   req.NumStates,
+		StateLabels: req.StateLabels,
+	}
+	if err := storage.UpsertControl(r.Context(), db, control); err != nil {
+		log.Printf("testing controls upsert failed for %q/%q: %v", req.TestName, req.ControlID, err)
+		writeError(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	writeJSON(w, http.StatusAccepted, map[string]string{"status": "accepted"})
 }
 
 func (s *TestingServer) handleHolding(w http.ResponseWriter, r *http.Request) {
@@ -224,7 +281,7 @@ func (s *TestingServer) handleReset(w http.ResponseWriter, r *http.Request) {
 
 // openTestingDB opens/creates a test-scoped SQLite DB and initializes schema.
 func openTestingDB(ctx context.Context, testName string) (*sql.DB, error) {
-	if err := os.MkdirAll("test-data", 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join("..", "test-data"), 0o755); err != nil {
 		return nil, err
 	}
 	dbPath := testingDBPath(testName)
@@ -241,7 +298,7 @@ func openTestingDB(ctx context.Context, testName string) (*sql.DB, error) {
 
 // testingDBPath is the canonical per-test DB filename contract.
 func testingDBPath(testName string) string {
-	return filepath.Join("test-data", testName+"-test-data.sqlite")
+	return filepath.Join("..", "test-data", testName+"-test-data.sqlite")
 }
 
 // isValidSlug enforces the lowercase-hyphen slug format used in test paths.

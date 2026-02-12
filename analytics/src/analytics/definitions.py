@@ -1,8 +1,10 @@
 from dagster import Definitions, ScheduleDefinition, define_asset_job
 
-from .assets import snapshot_sensor, snapshot_summary
+from .assets import snapshot_sensor, snapshot_summary, testing_api_snapshot_validation, testing_snapshot_summary
 
 snapshot_job = define_asset_job("snapshot_job", selection=["snapshot_summary"])
+testing_snapshot_job = define_asset_job("testing_snapshot_job", selection=["testing_snapshot_summary"])
+testing_api_flow_job = define_asset_job("testing_api_flow_job", selection=["testing_api_snapshot_validation"])
 
 snapshot_schedule = ScheduleDefinition(
 	job=snapshot_job,
@@ -10,7 +12,8 @@ snapshot_schedule = ScheduleDefinition(
 )
 
 definitions = Definitions(
-	assets=[snapshot_summary],
+	assets=[snapshot_summary, testing_snapshot_summary, testing_api_snapshot_validation],
 	schedules=[snapshot_schedule],
 	sensors=[snapshot_sensor],
+	jobs=[testing_snapshot_job, testing_api_flow_job],
 )
