@@ -25,7 +25,7 @@ This file is canonical for Milestone 04 execution details.
 - [x] No unapproved TODO sentinels in production code.
 
 ## Non-goals
-- [ ] No out-of-scope items from requirements were added.
+- [x] No out-of-scope items from requirements were added.
 
 ## Notes
 - Fill this section with milestone-specific edge cases, fixtures, and review notes.

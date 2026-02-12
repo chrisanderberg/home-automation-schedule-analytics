@@ -41,7 +41,7 @@ func (s *Server) routes() {
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		writeMethodNotAllowed(w, http.MethodGet)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -57,7 +57,7 @@ type controlRequest struct {
 // handleControls upserts control metadata required by ingestion endpoints.
 func (s *Server) handleControls(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		writeMethodNotAllowed(w, http.MethodPost)
 		return
 	}
 	var req controlRequest
@@ -99,7 +99,7 @@ func (s *Server) handleControls(w http.ResponseWriter, r *http.Request) {
 // handleHolding decodes a main API holding request and forwards to ingestion.
 func (s *Server) handleHolding(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		writeMethodNotAllowed(w, http.MethodPost)
 		return
 	}
 	var input ingest.HoldingInput
@@ -123,7 +123,7 @@ func (s *Server) handleHolding(w http.ResponseWriter, r *http.Request) {
 // handleTransitions decodes a main API transition request and forwards to ingestion.
 func (s *Server) handleTransitions(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		writeMethodNotAllowed(w, http.MethodPost)
 		return
 	}
 	var input ingest.TransitionInput
@@ -147,17 +147,15 @@ func (s *Server) handleTransitions(w http.ResponseWriter, r *http.Request) {
 // handleSnapshots exports a snapshot from the fixed runtime location contract.
 func (s *Server) handleSnapshots(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		writeMethodNotAllowed(w, http.MethodPost)
 		return
 	}
-	if r.Body != nil {
-		var req struct{}
-		decoder := json.NewDecoder(r.Body)
-		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(&req); err != nil && err != io.EOF {
-			writeError(w, http.StatusBadRequest, "invalid json")
-			return
-		}
+	var req struct{}
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&req); err != nil && err != io.EOF {
+		writeError(w, http.StatusBadRequest, "invalid json")
+		return
 	}
 	path, err := snapshot.Export(r.Context(), s.db)
 	if err != nil {
@@ -177,6 +175,11 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 
 func writeError(w http.ResponseWriter, status int, message string) {
 	writeJSON(w, status, map[string]string{"error": message})
+}
+
+func writeMethodNotAllowed(w http.ResponseWriter, allowedMethod string) {
+	w.Header().Set("Allow", allowedMethod)
+	writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 }
 
 func decodeStrictJSON(r io.Reader, v any) error {

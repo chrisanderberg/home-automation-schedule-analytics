@@ -92,7 +92,7 @@ func TestTransitionIngestSingleBucketUTC(t *testing.T) {
 		t.Fatalf("local transition mismatch: got %d want %d", vLocal, 1)
 	}
 
-	idxOther, err := blob.TransIndex(1, 2, 0, bucketUTC, 3)
+	idxOther, err := blob.TransIndex(1, 2, blob.ClockUTC, bucketUTC, 3)
 	if err != nil {
 		t.Fatalf("trans index other: %v", err)
 	}

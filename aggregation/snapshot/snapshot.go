@@ -251,10 +251,11 @@ func copyTable(ctx context.Context, source *sql.DB, dest execContexter, table st
 	if err != nil {
 		return err
 	}
-	placeholders := "?"
-	for i := 1; i < len(cols); i++ {
-		placeholders += ",?"
+	placeholderParts := make([]string, len(cols))
+	for i := range placeholderParts {
+		placeholderParts[i] = "?"
 	}
+	placeholders := strings.Join(placeholderParts, ",")
 	insertSQL := "INSERT INTO " + quotedTable + " (" + joinColumns(cols) + ") VALUES (" + placeholders + ")"
 
 	// Use a prepared statement when destination supports it to avoid repeated
@@ -304,14 +305,11 @@ type execContexter interface {
 
 // joinColumns builds a comma-separated identifier list for generated SQL.
 func joinColumns(cols []string) string {
-	if len(cols) == 0 {
-		return ""
+	quoted := make([]string, len(cols))
+	for i, col := range cols {
+		quoted[i] = quoteIdentifier(col)
 	}
-	out := quoteIdentifier(cols[0])
-	for i := 1; i < len(cols); i++ {
-		out += "," + quoteIdentifier(cols[i])
-	}
-	return out
+	return strings.Join(quoted, ",")
 }
 
 // quoteIdentifier safely quotes SQLite identifiers for generated statements.

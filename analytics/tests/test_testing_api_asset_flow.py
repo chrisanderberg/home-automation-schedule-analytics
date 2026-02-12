@@ -1,4 +1,7 @@
+"""Integration test for testing-API snapshot export materialized as an asset."""
+
 import json
+import shutil
 import socket
 import sqlite3
 import subprocess
@@ -9,21 +12,14 @@ import urllib.request
 from contextlib import closing
 from pathlib import Path
 
+from analytics.tests._helpers import repository_root_for_test
+
 try:
     from dagster import MaterializeResult, asset, materialize
 except Exception:  # pragma: no cover - environment-dependent import
     MaterializeResult = None
     asset = None
     materialize = None
-
-
-def _repository_root_for_test() -> Path:
-    """Resolve the monorepo root by walking parent directories."""
-    start = Path(__file__).resolve()
-    for parent in start.parents:
-        if (parent / "aggregation").is_dir():
-            return parent
-    raise AssertionError(f"repository root not found from {start}")
 
 
 def _pick_free_port() -> int:
@@ -44,7 +40,7 @@ def _post_json(url: str, payload: dict) -> tuple[int, dict]:
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:
             body = resp.read().decode("utf-8")
             decoded = json.loads(body) if body else {}
             return resp.status, decoded
@@ -108,9 +104,13 @@ def _seed_test_control(db_path: Path) -> None:
 
 
 @unittest.skipUnless(materialize is not None, "dagster is not available in this environment")
+@unittest.skipUnless(shutil.which("go"), "go toolchain is not available")
 class TestingAPIAssetFlowTests(unittest.TestCase):
+    """Exercises testing API flow and validates resulting snapshot metadata."""
+
     def test_testing_api_snapshot_validated_as_asset(self):
-        repo_root = _repository_root_for_test()
+        """Start aggregationd, export a test snapshot, and materialize validation."""
+        repo_root = repository_root_for_test()
         aggregation_dir = repo_root / "aggregation"
         main_port = _pick_free_port()
         test_port = _pick_free_port()

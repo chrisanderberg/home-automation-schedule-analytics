@@ -9,13 +9,13 @@ testing_snapshot_job = define_asset_job("testing_snapshot_job", selection=["test
 testing_api_flow_job = define_asset_job("testing_api_flow_job", selection=["testing_api_snapshot_validation"])
 
 snapshot_schedule = ScheduleDefinition(
-	job=snapshot_job,
-	cron_schedule="0 2 * * *",
+    job=snapshot_job,
+    cron_schedule="0 2 * * *",
 )
 
 definitions = Definitions(
-	assets=[snapshot_summary, testing_snapshot_summary, testing_api_snapshot_validation],
-	schedules=[snapshot_schedule],
-	sensors=[snapshot_sensor],
-	jobs=[snapshot_job, testing_snapshot_job, testing_api_flow_job],
+    assets=[snapshot_summary, testing_snapshot_summary, testing_api_snapshot_validation],
+    schedules=[snapshot_schedule],
+    sensors=[snapshot_sensor],
+    jobs=[snapshot_job, testing_snapshot_job, testing_api_flow_job],
 )

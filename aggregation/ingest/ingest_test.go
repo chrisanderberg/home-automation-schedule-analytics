@@ -101,7 +101,7 @@ func TestHoldingIngestSingleBucketUTC(t *testing.T) {
 		t.Fatalf("unexpected other state value: %d", vOther)
 	}
 
-	idxOtherBucket, err := blob.HoldIndex(1, 0, (bucket+1)%bucketingBucketsPerWeek(), 2)
+	idxOtherBucket, err := blob.HoldIndex(1, 0, (bucket+1)%blob.BucketsPerWeek, 2)
 	if err != nil {
 		t.Fatalf("hold index other bucket: %v", err)
 	}
@@ -112,8 +112,4 @@ func TestHoldingIngestSingleBucketUTC(t *testing.T) {
 	if vOtherBucket != 0 {
 		t.Fatalf("unexpected other bucket value: %d", vOtherBucket)
 	}
-}
-
-func bucketingBucketsPerWeek() int {
-	return 7 * 288
 }

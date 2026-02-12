@@ -16,6 +16,7 @@ var (
 func IsValidationError(err error) bool {
 	return errors.Is(err, ErrValidation) ||
 		errors.Is(err, ErrInvalidInput) ||
+		// Missing controls map to request-validation failures in ingestion APIs.
 		errors.Is(err, storage.ErrNotFound) ||
 		errors.Is(err, quarter.ErrInvalidInterval) ||
 		errors.Is(err, bucketing.ErrInvalidInterval) ||

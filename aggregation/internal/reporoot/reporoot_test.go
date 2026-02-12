@@ -28,6 +28,17 @@ func TestIsWithDirectoryMarker(t *testing.T) {
 	}
 }
 
+func TestIsRejectsFileWhenRequireDir(t *testing.T) {
+	tmp := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmp, ".git"), []byte(""), 0o644); err != nil {
+		t.Fatalf("write .git file: %v", err)
+	}
+
+	if Is(tmp) {
+		t.Fatalf("expected Is(%q) to be false when .git is a file", tmp)
+	}
+}
+
 func TestIsDoesNotMatchWithoutMarkers(t *testing.T) {
 	tmp := t.TempDir()
 	if err := os.Mkdir(filepath.Join(tmp, "aggregation"), 0o755); err != nil {
@@ -56,5 +67,21 @@ func TestFindSearchesUpwardToMarker(t *testing.T) {
 	}
 	if got != root {
 		t.Fatalf("Find(%q) = %q, want %q", start, got, root)
+	}
+}
+
+func TestFindReturnsFalseWithoutMarker(t *testing.T) {
+	tmp := t.TempDir()
+	start := filepath.Join(tmp, "a", "b")
+	if err := os.MkdirAll(start, 0o755); err != nil {
+		t.Fatalf("mkdir start: %v", err)
+	}
+
+	got, ok := Find(start)
+	if ok {
+		t.Fatalf("expected Find(%q) to fail without any root marker, got %q", start, got)
+	}
+	if got != "" {
+		t.Fatalf("expected empty root when not found, got %q", got)
 	}
 }

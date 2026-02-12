@@ -9,9 +9,9 @@ This file is canonical for durable progress snapshots and outcomes.
 
 ## Completed
 - Split requirements into `REQUIREMENTS.md` (umbrella), `AGGREGATION_REQUIREMENTS.md`, and `ANALYTICS_REQUIREMENTS.md`.
-- Updated process/context docs (`AGENTS.md`, `README.md`, `ARCHITECTURE.md`, `TESTING.md`) to use domain requirements.
-- Updated `PLAN.md` milestone statuses and added analytics milestones `M14`-`M18` with spec files.
-- Updated `CURRENT.md` to set next analytics milestone focus.
+- Aligned process/context docs (`AGENTS.md`, `README.md`, `ARCHITECTURE.md`, `TESTING.md`) to use domain requirements.
+- Revised `PLAN.md` milestone statuses and added analytics milestones `M14`-`M18` with spec files.
+- Set `CURRENT.md` to the next analytics milestone focus.
 
 ## In progress
 - None recorded.

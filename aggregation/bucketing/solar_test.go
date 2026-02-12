@@ -69,3 +69,43 @@ func TestUnequalHoursUndefinedOnly(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+// TestSolarCoordinateValidation verifies all solar clock variants reject
+// out-of-range latitude/longitude input consistently.
+func TestSolarCoordinateValidation(t *testing.T) {
+	timestamp := time.Date(2020, 6, 1, 12, 0, 0, 0, time.UTC).UnixMilli()
+
+	bucketChecks := []struct {
+		name string
+		fn   func(int64, float64, float64) (int, error)
+	}{
+		{"mean", BucketAtMeanSolar},
+		{"apparent", BucketAtApparentSolar},
+		{"unequal", BucketAtUnequalHours},
+	}
+	for _, tc := range bucketChecks {
+		t.Run("bucket_"+tc.name, func(t *testing.T) {
+			_, err := tc.fn(timestamp, 95, 0)
+			if !errors.Is(err, ErrInvalidCoordinates) {
+				t.Fatalf("expected ErrInvalidCoordinates, got %v", err)
+			}
+		})
+	}
+
+	splitChecks := []struct {
+		name string
+		fn   func(int64, int64, float64, float64) ([]BucketSpan, error)
+	}{
+		{"mean", SplitIntervalMeanSolar},
+		{"apparent", SplitIntervalApparentSolar},
+		{"unequal", SplitIntervalUnequalHours},
+	}
+	for _, tc := range splitChecks {
+		t.Run("split_"+tc.name, func(t *testing.T) {
+			_, err := tc.fn(timestamp, timestamp+60_000, 0, 200)
+			if !errors.Is(err, ErrInvalidCoordinates) {
+				t.Fatalf("expected ErrInvalidCoordinates, got %v", err)
+			}
+		})
+	}
+}

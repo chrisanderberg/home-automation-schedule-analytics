@@ -34,6 +34,7 @@ func TestSnapshotExportCreatesConsistentCopy(t *testing.T) {
 	}
 
 	outputDir := t.TempDir()
+	// Do not call t.Parallel in this test; os.Chdir is process-global.
 	prevWD, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("getwd: %v", err)
@@ -120,6 +121,7 @@ func TestExportForTestUsesDeterministicTestPath(t *testing.T) {
 	}
 
 	outputDir := t.TempDir()
+	// Do not call t.Parallel in this test; os.Chdir is process-global.
 	prevWD, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("getwd: %v", err)

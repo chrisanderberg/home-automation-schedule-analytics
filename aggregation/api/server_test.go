@@ -33,6 +33,23 @@ func TestHealth(t *testing.T) {
 	}
 }
 
+func TestHealthMethodNotAllowedIncludesAllowHeader(t *testing.T) {
+	db := openTestDB(t)
+	defer db.Close()
+
+	srv := NewServer(db, ingest.Config{TimeZone: "UTC"})
+	req := httptest.NewRequest(http.MethodPost, "/v1/health", nil)
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("expected 405, got %d", w.Code)
+	}
+	if got := w.Header().Get("Allow"); got != http.MethodGet {
+		t.Fatalf("allow header mismatch: got %q want %q", got, http.MethodGet)
+	}
+}
+
 // TestControlsEndpoint verifies valid control payloads are accepted by the
 // main API and persisted for subsequent ingestion validation.
 func TestControlsEndpoint(t *testing.T) {

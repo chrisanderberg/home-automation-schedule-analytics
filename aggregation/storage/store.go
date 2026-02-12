@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	_ "modernc.org/sqlite"
@@ -58,7 +59,7 @@ func GetControl(ctx context.Context, db *sql.DB, controlID string) (Control, err
 	var controlType string
 	var labels sql.NullString
 	if err := row.Scan(&control.ControlID, &controlType, &control.NumStates, &labels); err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return Control{}, ErrNotFound
 		}
 		return Control{}, err
